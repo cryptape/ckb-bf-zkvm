@@ -31,6 +31,7 @@ pub struct Interpreter {
     pub memory: Vec<Fq>,
     pub register: Register,
     pub matrix: Matrix,
+    pub bits: u64,
 }
 
 impl Interpreter {
@@ -41,6 +42,7 @@ impl Interpreter {
             memory: vec![Fq::zero()],
             register: Register::default(),
             matrix: Matrix::default(),
+            bits: 8,
         }
     }
 
@@ -50,6 +52,10 @@ impl Interpreter {
 
     pub fn set_input(&mut self, input: Vec<Fq>) {
         self.input = input;
+    }
+
+    pub fn set_bits(&mut self, bits: u64) {
+        self.bits = bits
     }
 
     pub fn run(&mut self) {
@@ -90,11 +96,19 @@ impl Interpreter {
                     self.register.instruction_pointer += Fq::one();
                 }
                 code::ADD => {
-                    self.memory[self.register.mp()] += Fq::one();
+                    if self.memory[self.register.mp()] == Fq::from((1 << self.bits) - 1) {
+                        self.memory[self.register.mp()] = Fq::zero()
+                    } else {
+                        self.memory[self.register.mp()] = self.memory[self.register.mp()] + Fq::one();
+                    }
                     self.register.instruction_pointer += Fq::one();
                 }
                 code::SUB => {
-                    self.memory[self.register.mp()] -= Fq::one();
+                    if self.memory[self.register.mp()] == Fq::zero() {
+                        self.memory[self.register.mp()] = Fq::from((1 << self.bits) - 1)
+                    } else {
+                        self.memory[self.register.mp()] = self.memory[self.register.mp()] - Fq::one();
+                    }
                     self.register.instruction_pointer += Fq::one();
                 }
                 code::GETCHAR => {
@@ -169,6 +183,5 @@ impl Interpreter {
         //     }
         //     i += 1;
         // }
-
     }
 }
