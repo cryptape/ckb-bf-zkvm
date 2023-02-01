@@ -152,20 +152,23 @@ impl Interpreter {
         self.matrix.instruction_matrix.push(InstructionMatrixRow::from(&self.register));
         self.matrix.instruction_matrix.sort_by_key(|row| row.instruction_pointer);
         self.matrix.memory_matrix.sort_by_key(|row| row.memory_pointer);
-        let mut i = 1;
-        while i < self.matrix.memory_matrix.len() - 1 {
-            if self.matrix.memory_matrix[i + 1].memory_pointer == self.matrix.memory_matrix[i].memory_pointer
-                && self.matrix.memory_matrix[i + 1].cycle != self.matrix.memory_matrix[i].cycle + Fq::one()
-            {
-                let interleaved_value = MemoryMatrixRow {
-                    cycle: self.matrix.memory_matrix[i].cycle + Fq::one(),
-                    memory_pointer: self.matrix.memory_matrix[i].memory_pointer,
-                    memory_value: self.matrix.memory_matrix[i].memory_value,
-                    interweave_indicator: Fq::one(),
-                };
-                self.matrix.memory_matrix.insert(i + 1, interleaved_value);
-            }
-            i += 1;
-        }
+
+        // Append dummy memory rows
+        // let mut i = 1;
+        // while i < self.matrix.memory_matrix.len() - 1 {
+        //     if self.matrix.memory_matrix[i + 1].memory_pointer == self.matrix.memory_matrix[i].memory_pointer
+        //         && self.matrix.memory_matrix[i + 1].cycle != self.matrix.memory_matrix[i].cycle + Fq::one()
+        //     {
+        //         let interleaved_value = MemoryMatrixRow {
+        //             cycle: self.matrix.memory_matrix[i].cycle + Fq::one(),
+        //             memory_pointer: self.matrix.memory_matrix[i].memory_pointer,
+        //             memory_value: self.matrix.memory_matrix[i].memory_value,
+        //             interweave_indicator: Fq::one(),
+        //         };
+        //         self.matrix.memory_matrix.insert(i + 1, interleaved_value);
+        //     }
+        //     i += 1;
+        // }
+
     }
 }

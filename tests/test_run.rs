@@ -18,7 +18,7 @@ fn test_run_neptune() {
     vm.set_input(code::easygen("a"));
     vm.run();
     assert_eq!(vm.matrix.processor_matrix.len(), 19);
-    assert_eq!(vm.matrix.memory_matrix.len(), 31);
+    assert_eq!(vm.matrix.memory_matrix.len(), 18);
     assert_eq!(vm.matrix.instruction_matrix.len(), 33);
     assert_eq!(vm.matrix.input_matrix, code::easygen("a"));
     assert_eq!(vm.matrix.output_matrix, code::easygen("bc"));
