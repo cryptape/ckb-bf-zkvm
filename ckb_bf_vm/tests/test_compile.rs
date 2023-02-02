@@ -1,4 +1,4 @@
-use ckb_bf_zkvm::code;
+use ckb_bf_vm::code;
 use halo2_proofs::halo2curves::bn256::Fq;
 
 #[test]
