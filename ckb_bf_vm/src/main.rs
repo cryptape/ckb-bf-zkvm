@@ -1,5 +1,5 @@
-use ckb_bf_zkvm::code;
-use ckb_bf_zkvm::interpreter;
+use ckb_bf_vm::code;
+use ckb_bf_vm::interpreter;
 use std::io::Read;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
