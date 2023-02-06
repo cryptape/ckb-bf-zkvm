@@ -2,7 +2,7 @@ use crate::utils::*;
 use ckb_bf_vm::matrix::Matrix;
 
 use halo2_proofs::circuit::{Layouter, Value};
-use halo2_proofs::halo2curves::bn256::Fq;
+use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::plonk::*;
 use halo2_proofs::poly::Rotation;
 
@@ -15,8 +15,8 @@ pub struct MemoryTableConfig {
 }
 
 impl Config for MemoryTableConfig {
-    fn configure(cs: &mut ConstraintSystem<Fq>) -> Self {
-        let one = Expression::Constant(Fq::one());
+    fn configure(cs: &mut ConstraintSystem<Fr>) -> Self {
+        let one = Expression::Constant(Fr::one());
 
         let clk = cs.advice_column();
         let mp = cs.advice_column();
@@ -58,7 +58,7 @@ impl Config for MemoryTableConfig {
         Self { clk, mp, mv, s_m }
     }
 
-    fn load_table(&self, layouter: &mut impl Layouter<Fq>, matrix: &Matrix) -> Result<(), Error> {
+    fn load_table(&self, layouter: &mut impl Layouter<Fr>, matrix: &Matrix) -> Result<(), Error> {
         layouter.assign_region(
             || "Load Memory Table",
             |mut region| {

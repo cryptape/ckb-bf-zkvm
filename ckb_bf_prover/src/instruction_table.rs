@@ -2,7 +2,7 @@ use crate::utils::*;
 use ckb_bf_vm::matrix::Matrix;
 
 use halo2_proofs::circuit::{Layouter, Value};
-use halo2_proofs::halo2curves::bn256::Fq;
+use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::plonk::*;
 use halo2_proofs::poly::Rotation;
 
@@ -15,8 +15,8 @@ pub struct InstructionTableConfig {
 }
 
 impl Config for InstructionTableConfig {
-    fn configure(cs: &mut ConstraintSystem<Fq>) -> Self {
-        let one = Expression::Constant(Fq::one());
+    fn configure(cs: &mut ConstraintSystem<Fr>) -> Self {
+        let one = Expression::Constant(Fr::one());
 
         let ip = cs.advice_column();
         let ci = cs.advice_column();
@@ -50,7 +50,7 @@ impl Config for InstructionTableConfig {
         Self { ip, ci, ni, s_i }
     }
 
-    fn load_table(&self, layouter: &mut impl Layouter<Fq>, matrix: &Matrix) -> Result<(), Error> {
+    fn load_table(&self, layouter: &mut impl Layouter<Fr>, matrix: &Matrix) -> Result<(), Error> {
         layouter.assign_region(
             || "Load Instruction Table",
             |mut region| {

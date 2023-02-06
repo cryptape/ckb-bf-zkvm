@@ -3,7 +3,7 @@ use crate::utils::*;
 use ckb_bf_vm::matrix::Matrix;
 
 use halo2_proofs::circuit::{Layouter, Value};
-use halo2_proofs::halo2curves::bn256::Fq;
+use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::plonk::*;
 use halo2_proofs::poly::Rotation;
 
@@ -24,11 +24,11 @@ pub struct ProcessorTableConfig<const RANGE: usize> {
 }
 
 impl<const RANGE: usize> Config for ProcessorTableConfig<RANGE> {
-    fn configure(cs: &mut ConstraintSystem<Fq>) -> Self {
-        let zero = Expression::Constant(Fq::zero());
-        let one = Expression::Constant(Fq::one());
-        let two = Expression::Constant(Fq::from(2));
-        let range_max = Expression::Constant(Fq::from((RANGE - 1) as u64));
+    fn configure(cs: &mut ConstraintSystem<Fr>) -> Self {
+        let zero = Expression::Constant(Fr::zero());
+        let one = Expression::Constant(Fr::one());
+        let two = Expression::Constant(Fr::from(2));
+        let range_max = Expression::Constant(Fr::from((RANGE - 1) as u64));
 
         let clk = cs.advice_column();
         let ci = cs.advice_column();
@@ -95,12 +95,12 @@ impl<const RANGE: usize> Config for ProcessorTableConfig<RANGE> {
         });
 
         // A deselector for op evalutes to zero iff ci != op
-        let create_deselector = |ci: Expression<Fq>, op| {
+        let create_deselector = |ci: Expression<Fr>, op| {
             OPCODES.iter().fold(ci.clone(), |expr, v| {
                 if *v == op {
                     expr
                 } else {
-                    expr * (ci.clone() - Expression::Constant(Fq::from(*v as u64)))
+                    expr * (ci.clone() - Expression::Constant(Fr::from(*v as u64)))
                 }
             })
         };
@@ -199,7 +199,7 @@ impl<const RANGE: usize> Config for ProcessorTableConfig<RANGE> {
         }
     }
 
-    fn load_table(&self, layouter: &mut impl Layouter<Fq>, matrix: &Matrix) -> Result<(), Error> {
+    fn load_table(&self, layouter: &mut impl Layouter<Fr>, matrix: &Matrix) -> Result<(), Error> {
         // Init lookup table
         self.lookup_table.load_table(layouter, matrix)?;
         layouter.assign_region(
