@@ -3,7 +3,7 @@ use ckb_bf_prover::utils::DOMAIN;
 use ckb_bf_vm::code;
 use ckb_bf_vm::interpreter::Interpreter;
 use halo2_proofs::dev::MockProver;
-use halo2_proofs::halo2curves::bn256::Fq;
+use halo2_proofs::halo2curves::bn256::Fr;
 
 #[test]
 fn test_prove_hello_world() {
@@ -12,7 +12,7 @@ fn test_prove_hello_world() {
     vm.set_code(program);
     vm.run();
 
-    let circuit = MyCircuit::<Fq, { DOMAIN }>::new(vm.matrix);
+    let circuit = MyCircuit::<Fr, { DOMAIN }>::new(vm.matrix);
     let prover = MockProver::run(11, &circuit, vec![]).unwrap();
     prover.assert_satisfied();
 }
@@ -25,7 +25,7 @@ fn test_prove_neptune() {
     vm.set_input(code::easygen("a"));
     vm.run();
 
-    let circuit = MyCircuit::<Fq, { DOMAIN }>::new(vm.matrix);
+    let circuit = MyCircuit::<Fr, { DOMAIN }>::new(vm.matrix);
     let prover = MockProver::run(10, &circuit, vec![]).unwrap();
     prover.assert_satisfied();
 }
@@ -37,7 +37,7 @@ fn test_prove_wrapping() {
     vm.set_code(program);
     vm.run();
 
-    let circuit = MyCircuit::<Fq, { DOMAIN }>::new(vm.matrix);
+    let circuit = MyCircuit::<Fr, { DOMAIN }>::new(vm.matrix);
     let prover = MockProver::run(10, &circuit, vec![]).unwrap();
     prover.assert_satisfied();
 }
@@ -51,7 +51,7 @@ fn test_prove_wrapping() {
 //     vm.set_input(code::easygen("a"));
 //     vm.run();
 
-//     let circuit = MyCircuit::<Fq, {DOMAIN}>::new(vm.matrix);
+//     let circuit = MyCircuit::<Fr, {DOMAIN}>::new(vm.matrix);
 //     let prover = MockProver::run(21, &circuit, vec![]).unwrap();
 //     prover.assert_satisfied();
 // }

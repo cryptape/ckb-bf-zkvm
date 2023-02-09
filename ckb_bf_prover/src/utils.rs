@@ -1,7 +1,7 @@
 use ckb_bf_vm::code;
 use ckb_bf_vm::matrix::Matrix;
 use halo2_proofs::circuit::Layouter;
-use halo2_proofs::halo2curves::bn256::Fq;
+use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::plonk::*;
 
 pub const OPCODES: [u8; 8] = [
@@ -27,6 +27,6 @@ pub const RB: usize = 7;
 pub const DOMAIN: usize = 256;
 
 pub trait Config {
-    fn configure(cs: &mut ConstraintSystem<Fq>) -> Self;
-    fn load_table(&self, layouter: &mut impl Layouter<Fq>, matrix: &Matrix) -> Result<(), Error>;
+    fn configure(cs: &mut ConstraintSystem<Fr>) -> Self;
+    fn load_table(&self, layouter: &mut impl Layouter<Fr>, matrix: &Matrix) -> Result<(), Error>;
 }
