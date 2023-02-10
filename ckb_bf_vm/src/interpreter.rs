@@ -163,6 +163,7 @@ impl Interpreter {
             };
         }
         self.matrix.processor_matrix.push(self.register.clone());
+        self.matrix.memory_matrix.push(MemoryMatrixRow::from(&self.register));
         self.matrix.instruction_matrix.push(InstructionMatrixRow::from(&self.register));
         self.matrix.instruction_matrix.sort_by_key(|row| row.instruction_pointer);
         self.matrix.memory_matrix.sort_by_key(|row| row.memory_pointer);
