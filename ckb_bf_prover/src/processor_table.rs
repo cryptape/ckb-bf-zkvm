@@ -109,7 +109,7 @@ impl<const RANGE: usize> ProcessorTable for ProcessorTableConfig<RANGE> {
 
         // A deselector for op evalutes to zero iff ci != op
         let create_deselector = |ci: Expression<Fr>, op| {
-            OPCODES.iter().fold(ci.clone(), |expr, v| {
+            OPCODES.iter().fold(one.clone(), |expr, v| {
                 if *v == op {
                     expr
                 } else {
