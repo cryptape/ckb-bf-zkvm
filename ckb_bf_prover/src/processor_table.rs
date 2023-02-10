@@ -7,6 +7,14 @@ use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::plonk::*;
 use halo2_proofs::poly::Rotation;
 
+pub trait ProcessorTable {
+    fn configure(cs: &mut ConstraintSystem<Fr>) -> Self;
+    // Configure the second phase, query the challenges and create gate for prp
+    fn configure_prp(self, cs: &mut ConstraintSystem<Fr>, prp_arg: PrpArg);
+    // Load the processor table, calculate the prp and returns the final cell
+    fn load_table(&self, layouter: &mut impl Layouter<Fr>, matrix: &Matrix, prp_arg: PrpArg) -> Result<BFCell, Error>;
+}
+
 #[derive(Clone, Debug, Copy)]
 pub struct ProcessorTableConfig<const RANGE: usize> {
     clk: Column<Advice>,
@@ -16,32 +24,37 @@ pub struct ProcessorTableConfig<const RANGE: usize> {
     mp: Column<Advice>,
     mv: Column<Advice>,
     mvi: Column<Advice>,
+    prp: Column<Advice>,
     lookup_table: RangeTableConfig<RANGE>, // Lookup table ensure mv are within [0-255]
     s_lookup: Selector,                    // Selector for lookup_table
     s_p: Selector,                         // Selector for condition P category (Processor Table)
     s_c: Selector,                         // Selector for condition C category (Consistency Constraints)
     s_b: Selector,                         // Selector for condition B category (Boundary Constraints)
+    s_prp: Selector,
 }
 
-impl<const RANGE: usize> Config for ProcessorTableConfig<RANGE> {
+impl<const RANGE: usize> ProcessorTable for ProcessorTableConfig<RANGE> {
     fn configure(cs: &mut ConstraintSystem<Fr>) -> Self {
         let zero = Expression::Constant(Fr::zero());
         let one = Expression::Constant(Fr::one());
         let two = Expression::Constant(Fr::from(2));
         let range_max = Expression::Constant(Fr::from((RANGE - 1) as u64));
 
-        let clk = cs.advice_column();
+        let clk = cs.advice_column_in(FirstPhase);
         let ci = cs.advice_column();
         let ip = cs.advice_column();
         let ni = cs.advice_column();
-        let mp = cs.advice_column();
-        let mv = cs.advice_column();
+        let mp = cs.advice_column_in(FirstPhase);
+        let mv = cs.advice_column_in(FirstPhase);
         let mvi = cs.advice_column();
+        let prp = cs.advice_column_in(SecondPhase);
+        cs.enable_equality(prp);
         let lookup_table = RangeTableConfig::configure(cs);
         let s_lookup = cs.complex_selector();
         let s_c = cs.selector();
         let s_p = cs.selector();
         let s_b = cs.selector();
+        let s_prp = cs.selector();
 
         cs.create_gate("B0: clk_0 = 0", |vc| {
             let s_b = vc.query_selector(s_b);
@@ -191,20 +204,40 @@ impl<const RANGE: usize> Config for ProcessorTableConfig<RANGE> {
             mp,
             mv,
             mvi,
+            prp,
             lookup_table,
             s_lookup,
             s_p,
             s_c,
             s_b,
+            s_prp,
         }
     }
 
-    fn load_table(&self, layouter: &mut impl Layouter<Fr>, matrix: &Matrix) -> Result<(), Error> {
+    fn configure_prp(self, cs: &mut ConstraintSystem<Fr>, prp_arg: PrpArg) {
+        cs.create_gate("Processor prp should have valid transition", |vc| {
+            let clk = vc.query_advice(self.clk, Rotation::cur());
+            let mp = vc.query_advice(self.mp, Rotation::cur());
+            let mv = vc.query_advice(self.mv, Rotation::cur());
+            let prp_cur = vc.query_advice(self.prp, Rotation::cur());
+            let prp_next = vc.query_advice(self.prp, Rotation::next());
+            let s_prp = vc.query_selector(self.s_prp);
+            let [alpha, d, e, f] = prp_arg.challenges.map(|c| vc.query_challenge(c));
+            vec![s_prp * (prp_next - prp_cur * (alpha - d * clk - e * mp - f * mv))]
+        });
+    }
+
+    fn load_table(&self, layouter: &mut impl Layouter<Fr>, matrix: &Matrix, prp_arg: PrpArg) -> Result<BFCell, Error> {
         // Init lookup table
         self.lookup_table.load_table(layouter, matrix)?;
+        assert_eq!(matrix.processor_matrix.len(), matrix.memory_matrix.len());
+        // Read challenges
+        let [alpha, d, e, f] = prp_arg.challenges.map(|c| layouter.get_challenge(c));
         layouter.assign_region(
             || "Load Processor Table",
             |mut region| {
+                // init prp
+                let mut prp_prev = region.assign_advice(|| "prp", self.prp, 0, || Value::known(prp_arg.init))?;
                 let processor_matrix = &matrix.processor_matrix;
                 // B condition is enabled only for the first row
                 self.s_b.enable(&mut region, 0)?;
@@ -213,20 +246,22 @@ impl<const RANGE: usize> Config for ProcessorTableConfig<RANGE> {
                         // P condition is enabled except last row
                         self.s_p.enable(&mut region, idx)?;
                     }
-                    // Enable C condition check
+                    // Enable C/Lookup/prp check
                     self.s_c.enable(&mut region, idx)?;
-                    // Enable lookup
                     self.s_lookup.enable(&mut region, idx)?;
+                    self.s_prp.enable(&mut region, idx)?;
 
-                    region.assign_advice(|| "clk", self.clk, idx, || Value::known(reg.cycle))?;
+                    let clk = region.assign_advice(|| "clk", self.clk, idx, || Value::known(reg.cycle))?;
                     region.assign_advice(|| "ip", self.ip, idx, || Value::known(reg.instruction_pointer))?;
                     region.assign_advice(|| "ci", self.ci, idx, || Value::known(reg.current_instruction))?;
                     region.assign_advice(|| "ni", self.ni, idx, || Value::known(reg.next_instruction))?;
-                    region.assign_advice(|| "mp", self.mp, idx, || Value::known(reg.memory_pointer))?;
-                    region.assign_advice(|| "mv", self.mv, idx, || Value::known(reg.memory_value))?;
+                    let mp = region.assign_advice(|| "mp", self.mp, idx, || Value::known(reg.memory_pointer))?;
+                    let mv = region.assign_advice(|| "mv", self.mv, idx, || Value::known(reg.memory_value))?;
                     region.assign_advice(|| "mvi", self.mvi, idx, || Value::known(reg.memory_value_inverse))?;
+                    let prp = prp_prev.value() * (alpha - d * clk.value() - e * mp.value() - f * mv.value());
+                    prp_prev = region.assign_advice(|| "prp", self.prp, idx + 1, || prp)?;
                 }
-                Ok(())
+                Ok(prp_prev)
             },
         )
     }

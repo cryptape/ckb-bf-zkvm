@@ -1,6 +1,6 @@
 use ckb_bf_vm::code;
 use ckb_bf_vm::matrix::Matrix;
-use halo2_proofs::circuit::Layouter;
+use halo2_proofs::circuit::{AssignedCell, Layouter};
 use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::plonk::*;
 
@@ -25,6 +25,14 @@ pub const LB: usize = 6;
 pub const RB: usize = 7;
 
 pub const DOMAIN: usize = 256;
+
+pub type BFCell = AssignedCell<Fr, Fr>;
+
+#[derive(Clone, Copy, Debug)]
+pub struct PrpArg {
+    pub(crate) init: Fr,
+    pub(crate) challenges: [Challenge; 4],
+}
 
 pub trait Config {
     fn configure(cs: &mut ConstraintSystem<Fr>) -> Self;
