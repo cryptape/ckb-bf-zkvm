@@ -8,10 +8,13 @@ use halo2_proofs::poly::Rotation;
 
 pub trait MemoryTable {
     fn configure(cs: &mut ConstraintSystem<Fr>) -> Self;
-    // Configure the second phase, query the challenges and create gate for prp
-    fn configure_prp(self, cs: &mut ConstraintSystem<Fr>, prp_arg: PrpArg);
-    // Load the processor table, calculate the prp and returns the final cell
-    fn load_table(&self, layouter: &mut impl Layouter<Fr>, matrix: &Matrix, prp_arg: PrpArg) -> Result<BFCell, Error>;
+    fn configure_second_phase(self, cs: &mut ConstraintSystem<Fr>, challenges: BFChallenge);
+    fn load_table(
+        &self,
+        layouter: &mut impl Layouter<Fr>,
+        matrix: &Matrix,
+        challenges: BFChallenge,
+    ) -> Result<BFCell, Error>;
 }
 
 #[derive(Clone, Debug, Copy)]
@@ -78,7 +81,7 @@ impl MemoryTable for MemoryTableConfig {
         }
     }
 
-    fn configure_prp(self, cs: &mut ConstraintSystem<Fr>, prp_arg: PrpArg) {
+    fn configure_second_phase(self, cs: &mut ConstraintSystem<Fr>, challenges: BFChallenge) {
         cs.create_gate("Memory prp should have valid transition", |vc| {
             let clk = vc.query_advice(self.clk, Rotation::cur());
             let mp = vc.query_advice(self.mp, Rotation::cur());
@@ -86,19 +89,24 @@ impl MemoryTable for MemoryTableConfig {
             let prp_cur = vc.query_advice(self.prp, Rotation::cur());
             let prp_next = vc.query_advice(self.prp, Rotation::next());
             let s_prp = vc.query_selector(self.s_prp);
-            let [alpha, d, e, f] = prp_arg.challenges.map(|c| vc.query_challenge(c));
+            let [alpha, d, e, f] = challenges.get_mem_prp_challenges().map(|c| vc.query_challenge(c));
             vec![s_prp * (prp_next - prp_cur * (alpha - d * clk - e * mp - f * mv))]
         });
     }
 
-    fn load_table(&self, layouter: &mut impl Layouter<Fr>, matrix: &Matrix, prp_arg: PrpArg) -> Result<BFCell, Error> {
+    fn load_table(
+        &self,
+        layouter: &mut impl Layouter<Fr>,
+        matrix: &Matrix,
+        challenges: BFChallenge,
+    ) -> Result<BFCell, Error> {
         // Read challenges
-        let [alpha, d, e, f] = prp_arg.challenges.map(|c| layouter.get_challenge(c));
+        let [alpha, d, e, f] = challenges.get_mem_prp_challenges().map(|c| layouter.get_challenge(c));
         layouter.assign_region(
             || "Load Memory Table",
             |mut region| {
                 // init prp
-                let mut prp_prev = region.assign_advice(|| "prp", self.prp, 0, || Value::known(prp_arg.init))?;
+                let mut prp_prev = region.assign_advice(|| "prp", self.prp, 0, || Value::known(challenges.mem_prp_init))?;
                 let memory_matrix = &matrix.memory_matrix;
                 for (idx, row) in memory_matrix.iter().enumerate() {
                     if idx < memory_matrix.len() - 1 {

@@ -1,16 +1,20 @@
-use crate::utils::*;
 use ckb_bf_vm::matrix::Matrix;
 
 use halo2_proofs::circuit::{Layouter, Value};
 use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::plonk::*;
 
+pub trait RangeTable {
+    fn configure(cs: &mut ConstraintSystem<Fr>) -> Self;
+    fn load_table(&self, layouter: &mut impl Layouter<Fr>, _: &Matrix) -> Result<(), Error>;
+}
+
 #[derive(Clone, Debug, Copy)]
 pub struct RangeTableConfig<const RANGE: usize> {
     pub table: TableColumn,
 }
 
-impl<const RANGE: usize> Config for RangeTableConfig<RANGE> {
+impl<const RANGE: usize> RangeTable for RangeTableConfig<RANGE> {
     fn configure(cs: &mut ConstraintSystem<Fr>) -> Self {
         let table = cs.lookup_table_column();
         Self { table }
