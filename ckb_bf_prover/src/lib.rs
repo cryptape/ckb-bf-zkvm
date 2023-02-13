@@ -4,3 +4,5 @@ pub mod memory_table;
 pub mod processor_table;
 pub mod range_table;
 pub mod utils;
+
+pub const GOD_PRIVATE_KEY: u128 = 42;
