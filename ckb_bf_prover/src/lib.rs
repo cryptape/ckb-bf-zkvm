@@ -6,3 +6,5 @@ pub mod range_table;
 pub mod output_table;
 pub mod input_table;
 pub mod utils;
+
+pub const GOD_PRIVATE_KEY: u128 = 42;
