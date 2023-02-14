@@ -1,5 +1,7 @@
-use crate::instruction_table::InstructionTableConfig;
+use crate::input_table::{InputTable, InputTableConfig};
+use crate::instruction_table::{InstructionTable, InstructionTableConfig};
 use crate::memory_table::{MemoryTable, MemoryTableConfig};
+use crate::output_table::{OutputTable, OutputTableConfig};
 use crate::processor_table::{ProcessorTable, ProcessorTableConfig};
 use crate::utils::*;
 use ckb_bf_vm::matrix::Matrix;
@@ -9,71 +11,128 @@ use halo2_proofs::circuit::{Layouter, SimpleFloorPlanner};
 use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::plonk::*;
 use halo2_proofs::poly::Rotation;
-use rand::rngs::OsRng;
 use std::marker::PhantomData;
 /**
  * TODO: What's Misssing?
- * 1. permutation running product (prp) to link processor table and memory table
- * 2. running evaluation (re) to link processor table and output table
- * 3. re to link processor table and input table
- * 4. link processor table and instruction table
- * 4. read public input and expose public output
+ * All proofs from the original tut are implemented except one
+ * We need to prove the instruction table contains the original program
+ * This require us to have another program table (which contains the program, sorted by ip)
+ * After that, we can finish the last evaluation argument and prove program + trace = instruction table.
  */
+
+pub trait MainTable {
+    fn configure(cs: &mut ConstraintSystem<Fr>) -> Self;
+    fn load_table(&self, layouter: &mut impl Layouter<Fr>, matrix: &Matrix) -> Result<(), Error>;
+}
 
 #[derive(Clone, Debug, Copy)]
 pub struct MainConfig<const RANGE: usize> {
     p_config: ProcessorTableConfig<RANGE>,
     m_config: MemoryTableConfig,
     i_config: InstructionTableConfig,
-    prp_arg: PrpArg,
-    processor_prp: Column<Advice>,
-    memory_prp: Column<Advice>,
-    s_prp: Selector, // Check prp final state
+    output_config: OutputTableConfig,
+    input_config: InputTableConfig,
+    challenges: BFChallenge,
+    final_states: [Column<Advice>; 8],
+    s_final: Selector,
 }
 
-impl<const RANGE: usize> Config for MainConfig<RANGE> {
+impl<const RANGE: usize> MainTable for MainConfig<RANGE> {
     fn configure(cs: &mut ConstraintSystem<Fr>) -> Self {
+        // First phase gates and tables
         let p_config = ProcessorTableConfig::configure(cs);
         let m_config = MemoryTableConfig::configure(cs);
         let i_config = InstructionTableConfig::configure(cs);
-        let prp_arg = PrpArg {
-            init: Fr::random(OsRng),
-            challenges: [(); 4].map(|_| cs.challenge_usable_after(FirstPhase)),
-        };
-        m_config.configure_prp(cs, prp_arg);
-        p_config.configure_prp(cs, prp_arg);
-        let processor_prp = cs.advice_column();
-        let memory_prp = cs.advice_column();
-        cs.enable_equality(processor_prp);
-        cs.enable_equality(memory_prp);
-        let s_prp = cs.selector();
+        let output_config = OutputTableConfig::configure(cs);
+        let input_config = InputTableConfig::configure(cs);
+        // Second phase tables
+        let challenges = BFChallenge::init(cs);
+        m_config.configure_second_phase(cs, challenges);
+        p_config.configure_second_phase(cs, challenges);
+        i_config.configure_second_phase(cs, challenges);
+        output_config.configure_second_phase(cs, challenges);
+        input_config.configure_second_phase(cs, challenges);
+        // main gates and columns
+        let final_states = [(); 8].map(|_| cs.advice_column());
+        final_states.map(|col| cs.enable_equality(col));
+        let s_final = cs.selector();
         cs.create_gate("Memory and processor prp should have same terminal state", |vc| {
-            let processor_prp = vc.query_advice(processor_prp, Rotation::cur());
-            let memory_prp = vc.query_advice(memory_prp, Rotation::cur());
-            let s_prp = vc.query_selector(s_prp);
-            vec![s_prp * (processor_prp - memory_prp)]
+            let processor_prp = vc.query_advice(final_states[0], Rotation::cur());
+            let memory_prp = vc.query_advice(final_states[1], Rotation::cur());
+            let s_final = vc.query_selector(s_final);
+            vec![s_final * (processor_prp - memory_prp)]
         });
+        cs.create_gate(
+            "Output and processor table should have same terminal state for output rs",
+            |vc| {
+                let output_rs = vc.query_advice(final_states[2], Rotation::cur());
+                let processor_rs = vc.query_advice(final_states[3], Rotation::cur());
+                let s_final = vc.query_selector(s_final);
+                vec![s_final * (processor_rs - output_rs)]
+            },
+        );
+        cs.create_gate(
+            "Input and processor table should have same terminal state for input rs",
+            |vc| {
+                let input_rs = vc.query_advice(final_states[4], Rotation::cur());
+                let processor_rs = vc.query_advice(final_states[5], Rotation::cur());
+                let s_final = vc.query_selector(s_final);
+                vec![s_final * (processor_rs - input_rs)]
+            },
+        );
+        cs.create_gate("instruction and processor prp should have same terminal state", |vc| {
+            let processor_inst_prp = vc.query_advice(final_states[6], Rotation::cur());
+            let inst_prp = vc.query_advice(final_states[7], Rotation::cur());
+            let s_final = vc.query_selector(s_final);
+            vec![s_final * (processor_inst_prp - inst_prp)]
+        });
+
         Self {
             p_config,
             m_config,
             i_config,
-            prp_arg,
-            processor_prp,
-            memory_prp,
-            s_prp,
+            output_config,
+            input_config,
+            challenges,
+            final_states,
+            s_final,
         }
     }
 
     fn load_table(&self, layouter: &mut impl Layouter<Fr>, matrix: &Matrix) -> Result<(), Error> {
-        let processor_prp = self.p_config.load_table(layouter, matrix, self.prp_arg)?;
-        let memory_prp = self.m_config.load_table(layouter, matrix, self.prp_arg)?;
-        self.i_config.load_table(layouter, matrix)?;
+        let (processor_mem_prp, processor_output_rs, processor_input_rs, processor_inst_prp) =
+            self.p_config.load_table(layouter, matrix, self.challenges)?;
+        let memory_prp = self.m_config.load_table(layouter, matrix, self.challenges)?;
+        let inst_prp = self.i_config.load_table(layouter, matrix, self.challenges)?;
+        let output_rs = self.output_config.load_table(layouter, matrix, self.challenges)?;
+        let input_rs = self.input_config.load_table(layouter, matrix, self.challenges)?;
         layouter.assign_region(
             || "Extension Column",
             |mut region| {
-                processor_prp.copy_advice(|| "processor prp final state", &mut region, self.processor_prp, 0)?;
-                memory_prp.copy_advice(|| "memory prp final state", &mut region, self.memory_prp, 0)?;
-                self.s_prp.enable(&mut region, 0)?;
+                self.s_final.enable(&mut region, 0)?;
+                processor_mem_prp.copy_advice(
+                    || "processor mem prp final state",
+                    &mut region,
+                    self.final_states[0],
+                    0,
+                )?;
+                memory_prp.copy_advice(|| "memory prp final state", &mut region, self.final_states[1], 0)?;
+                output_rs.copy_advice(|| "output table rs", &mut region, self.final_states[2], 0)?;
+                processor_output_rs.copy_advice(
+                    || "processor table output rs",
+                    &mut region,
+                    self.final_states[3],
+                    0,
+                )?;
+                input_rs.copy_advice(|| "input table rs", &mut region, self.final_states[4], 0)?;
+                processor_input_rs.copy_advice(|| "processor table input rs", &mut region, self.final_states[5], 0)?;
+                processor_inst_prp.copy_advice(
+                    || "processor inst prp final state",
+                    &mut region,
+                    self.final_states[6],
+                    0,
+                )?;
+                inst_prp.copy_advice(|| "inst prp final state", &mut region, self.final_states[7], 0)?;
                 Ok(())
             },
         )

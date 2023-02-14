@@ -42,6 +42,21 @@ fn test_prove_wrapping() {
     prover.assert_satisfied();
 }
 
+// #[test]
+// Still too slow :(
+// fn test_prove_echo() {
+//     let program = code::compile(include_bytes!("../../res/echo.bf").to_vec());
+//     let mut vm = Interpreter::new();
+//     vm.set_code(program);
+//     // vm.set_input(code::easygen("The quick brown fox jumps over the lazy dog"));
+//     vm.set_input(code::easygen("a"));
+//     vm.run();
+
+//     let circuit = MyCircuit::<Fr, { DOMAIN }>::new(vm.matrix);
+//     let prover = MockProver::run(10, &circuit, vec![]).unwrap();
+//     prover.assert_satisfied();
+// }
+
 // This takes a long time
 // #[test]
 // fn test_prove_pearson() {
