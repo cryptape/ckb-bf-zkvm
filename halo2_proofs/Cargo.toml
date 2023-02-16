@@ -47,8 +47,7 @@ harness = false
 backtrace = { version = "0.3", optional = true }
 ff = "0.12"
 group = "0.12" 
-halo2curves = { git = 'https://github.com/contrun/halo2curves.git', branch = "v0.3.1-no-std", default-features = false }
-# halo2curves = { path = "../../halo2curves" }
+halo2curves = { path = "../halo2curves" }
 rand_core = { version = "0.6", default-features = false }
 rand_chacha = { version = "0.3.1", default-features = false }
 blake2b_simd = { version = "1", default-features = false }

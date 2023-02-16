@@ -28,7 +28,7 @@ ff = "0.12"
 group = "0.12"
 halo2_proofs = { version = "0.2", path = "../halo2_proofs" }
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
-halo2curves = { git = 'https://github.com/contrun/halo2curves', branch = 'v0.3.1-no-std' }
+halo2curves = { path = "../halo2curves" }
 proptest = { version = "1.0.0", optional = true }
 rand = { version = "0.8", default-features = false }
 subtle = { version = "2.3", default-features = false, features = ["i128"] }
