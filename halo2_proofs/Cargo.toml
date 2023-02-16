@@ -46,9 +46,7 @@ harness = false
 [dependencies]
 backtrace = { version = "0.3", optional = true }
 ff = "0.12"
-# ff = { path = "../../ff", default-features = false }
 group = "0.12" 
-# group = { path = "../../group", default-features = false }
 halo2curves = { git = 'https://github.com/contrun/halo2curves.git', branch = "v0.3.1-no-std", default-features = false }
 # halo2curves = { path = "../../halo2curves" }
 rand_core = { version = "0.6", default-features = false }
@@ -57,8 +55,7 @@ blake2b_simd = { version = "1", default-features = false }
 sha3 = { version = "0.9.1", default-features = false }
 subtle = { version = "2.3", default-features = false, features = ["i128"] }
 cfg-if = "0.1"
-poseidon = { git = 'https://github.com/contrun/poseidon.git', branch = "no-std" }
-# poseidon = { path = "../../poseidon", default-features = false } 
+poseidon = { path = "../poseidon", default-features = false } 
 num-integer = { version = "0.1", default-features = false }
 num-bigint = { version = "0.4", default-features = false }
 hashbrown = { version = "0.9" }
