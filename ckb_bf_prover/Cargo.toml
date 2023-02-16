@@ -7,9 +7,9 @@ edition = "2021"
 
 [dependencies]
 ckb_bf_vm = {path = "../ckb_bf_vm"}
-halo2 = { git = "https://github.com/scroll-tech/halo2", branch = "scroll-dev-1220" }
-halo2_gadgets = { git = "https://github.com/scroll-tech/halo2", branch = "scroll-dev-1220" }
-halo2_proofs = { git = "https://github.com/scroll-tech/halo2", branch = "scroll-dev-1220" }
+halo2 = { path = "../halo2" }
+halo2_gadgets = { path = "../halo2_gadgets" }
+halo2_proofs = { path = "../halo2_proofs" }
 rand = { version = "0.8.0", features = ["std"]}
 rand_xorshift = "0.3"
 log = "0.4.17"
