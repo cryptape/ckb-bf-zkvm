@@ -2,4 +2,9 @@
 members = [
     "ckb_bf_vm",
     "ckb_bf_prover",
+    "halo2",
+    "halo2_gadgets",
+    "halo2_proofs",
+    "halo2curves",
+    "poseidon",
 ]

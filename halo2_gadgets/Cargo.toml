@@ -1,0 +1,63 @@
+[package]
+name = "halo2_gadgets"
+version = "0.2.0"
+authors = [
+    "Sean Bowe <sean@electriccoin.co>",
+    "Jack Grigg <jack@electriccoin.co>",
+    "Daira Hopwood <daira@jacaranda.org>",
+    "Ying Tong Lai <yingtong@electriccoin.co>",
+    "Kris Nuttycombe <kris@electriccoin.co>",
+]
+edition = "2021"
+rust-version = "1.56.1"
+description = "Reusable gadgets and chip implementations for Halo 2"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/zcash/halo2"
+readme = "README.md"
+categories = ["cryptography"]
+keywords = ["halo", "proofs", "zcash", "zkp", "zkSNARKs"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs", "--html-in-header", "katex-header.html"]
+
+[dependencies]
+arrayvec = { version = "0.7.0", default-features = false }
+bitvec = { version = "1", default-features = false }
+ff = "0.12"
+group = "0.12"
+halo2_proofs = { version = "0.2", path = "../halo2_proofs" }
+lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
+halo2curves = { path = "../halo2curves" }
+proptest = { version = "1.0.0", optional = true }
+rand = { version = "0.8", default-features = false }
+subtle = { version = "2.3", default-features = false, features = ["i128"] }
+uint = { version = "0.9.2", default-features = false }
+hashbrown = "0.12.3"
+
+[dev-dependencies]
+criterion = "0.3"
+proptest = "1.0.0"
+
+[target.'cfg(unix)'.dev-dependencies]
+pprof = { version = "0.8", features = ["criterion", "flamegraph"] } # MSRV 1.56
+
+[lib]
+bench = false
+
+[features]
+test-dependencies = ["proptest"]
+unstable = []
+
+[[bench]]
+name = "primitives"
+harness = false
+
+[[bench]]
+name = "poseidon"
+harness = false
+
+[[bench]]
+name = "sha256"
+harness = false
+required-features = ["unstable"]

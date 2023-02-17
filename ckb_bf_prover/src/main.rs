@@ -10,7 +10,9 @@ use halo2_proofs::poly::commitment::{Params, ParamsProver};
 use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG, ParamsVerifierKZG};
 use halo2_proofs::poly::kzg::multiopen::{ProverSHPLONK, VerifierSHPLONK};
 use halo2_proofs::poly::kzg::strategy::SingleStrategy;
-use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer};
+use halo2_proofs::transcript::{
+    Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
+};
 use log::info;
 use rand::SeedableRng;
 use rand_xorshift::XorShiftRng;
@@ -25,7 +27,24 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, _public_inputs: &[&[
     let pk = keygen_pk(&general_params, vk, &circuit).expect("keygen_pk");
     info!("Trusted setup done");
 
-    let rng = XorShiftRng::from_seed([GOD_PRIVATE_KEY as u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    let rng = XorShiftRng::from_seed([
+        GOD_PRIVATE_KEY as u8,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    ]);
     let mut transcript = Blake2bWrite::<_, G1Affine, Challenge255<_>>::init(vec![]);
     info!("Start create_proof");
     create_proof::<
@@ -41,9 +60,13 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, _public_inputs: &[&[
 
     let proof = transcript.finalize();
     let mut verifier_params_buf = vec![];
-    verifier_params.write(&mut verifier_params_buf).expect("write");
+    verifier_params
+        .write(&mut verifier_params_buf)
+        .expect("write");
     let mut vk_buf = vec![];
-    pk.get_vk().write(&mut vk_buf).expect("write");
+    pk.get_vk()
+        .write(&mut vk_buf, halo2_proofs::SerdeFormat::RawBytes)
+        .expect("write");
 
     info!("proof length : {}", proof.len());
     info!("verifier parameters length : {}", verifier_params_buf.len());
@@ -58,7 +81,13 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, _public_inputs: &[&[
         Challenge255<G1Affine>,
         Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
         SingleStrategy<'_, Bn256>,
-    >(&verifier_params, pk.get_vk(), strategy, &[], &mut verifier_transcript)
+    >(
+        &verifier_params,
+        pk.get_vk(),
+        strategy,
+        &[],
+        &mut verifier_transcript,
+    )
     .expect("verify_proof");
 }
 
@@ -73,7 +102,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut i = Interpreter::new();
     i.set_code(code::compile(c));
     i.run();
-    let k = i.matrix.instruction_matrix.len().next_power_of_two().trailing_zeros();
+    let k = i
+        .matrix
+        .instruction_matrix
+        .len()
+        .next_power_of_two()
+        .trailing_zeros();
 
     let circuit = MyCircuit::<Fr, { DOMAIN }>::new(i.matrix);
     prove_and_verify(k, circuit, &[&[]]);
