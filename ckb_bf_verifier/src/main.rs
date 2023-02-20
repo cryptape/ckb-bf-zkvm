@@ -12,7 +12,6 @@ use ckb_std::{
     default_alloc,
     syscalls::{debug, load_witness},
 };
-use core::arch::asm;
 use halo2_gadgets::halo2curves::bn256::{Bn256, Fr, G1Affine};
 
 ckb_std::entry!(program_entry);
@@ -32,7 +31,7 @@ use halo2_proofs::{
 use halo2curves::io;
 
 
-pub fn program_entry(_argc: u64, _argv: *const *const u8) -> i8 {
+pub fn program_entry() -> i8 {
     let mut params_buffer = [0u8; 32 * 1024];
     let params_len = match load_witness(&mut params_buffer, 0, 0, Source::Input) {
         Ok(l) => {

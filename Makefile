@@ -18,4 +18,5 @@ run-tx:
 
 install:
 	rustup target add riscv64imac-unknown-none-elf
+	sudo apt install gcc-riscv64-unknown-elf
 	cargo install --git https://github.com/nervosnetwork/ckb-standalone-debugger ckb-debugger
