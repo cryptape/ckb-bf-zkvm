@@ -10,3 +10,7 @@ members = [
     "halo2curves",
     "poseidon",
 ]
+
+[profile.release.package.ckb_bf_verifier]
+debug = false
+strip = true
