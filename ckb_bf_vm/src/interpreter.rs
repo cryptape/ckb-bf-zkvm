@@ -2,10 +2,8 @@ use crate::code;
 use crate::matrix::{InstructionMatrixRow, Matrix, MemoryMatrixRow};
 use alloc::vec::Vec;
 use core::convert::From;
-
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::halo2curves::{bn256::Fr, FieldExt};
-use std::io::{Read, Write};
 
 #[derive(Clone, Debug, Default)]
 pub struct Register {
@@ -115,19 +113,12 @@ impl Interpreter {
                     self.register.instruction_pointer += Fr::one();
                 }
                 code::GETCHAR => {
-                    let val = if self.input.is_empty() {
-                        let mut buf: Vec<u8> = vec![0; 1];
-                        std::io::stdin().read_exact(&mut buf).unwrap();
-                        Fr::from(buf[0] as u64)
-                    } else {
-                        self.input.remove(0)
-                    };
+                    let val = self.input.remove(0);
                     self.memory[self.register.mp()] = val;
                     self.matrix.input_matrix.push(val);
                     self.register.instruction_pointer += Fr::one();
                 }
                 code::PUTCHAR => {
-                    std::io::stdout().write_all(&[self.register.memory_value.get_lower_128() as u8]).unwrap();
                     self.matrix.output_matrix.push(self.register.memory_value);
                     self.register.instruction_pointer += Fr::one();
                 }
