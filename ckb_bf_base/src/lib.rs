@@ -13,4 +13,4 @@ pub mod range_table;
 pub mod utils;
 
 pub const GOD_PRIVATE_KEY: u128 = 42;
-pub const SHRINK_K: u32 = 6;
+pub const SHRINK_K: u32 = 1;
