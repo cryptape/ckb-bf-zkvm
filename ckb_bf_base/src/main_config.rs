@@ -5,13 +5,12 @@ use crate::output_table::{OutputTable, OutputTableConfig};
 use crate::processor_table::{ProcessorTable, ProcessorTableConfig};
 use crate::utils::*;
 use ckb_bf_vm::matrix::Matrix;
-
+use core::marker::PhantomData;
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::circuit::{Layouter, SimpleFloorPlanner};
 use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::plonk::*;
 use halo2_proofs::poly::Rotation;
-use std::marker::PhantomData;
 /**
  * TODO: What's Misssing?
  * All proofs from the original tut are implemented except one

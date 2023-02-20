@@ -1,3 +1,8 @@
+#![no_std]
+
+#[macro_use]
+extern crate alloc;
+
 pub mod input_table;
 pub mod instruction_table;
 pub mod main_config;
