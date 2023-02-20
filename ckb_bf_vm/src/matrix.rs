@@ -1,5 +1,10 @@
+extern crate alloc;
+use alloc::vec::Vec;
+
+
 use crate::interpreter::Register;
 use halo2_proofs::halo2curves::bn256::Fr;
+use core::convert::From;
 
 #[derive(Default)]
 pub struct Matrix {

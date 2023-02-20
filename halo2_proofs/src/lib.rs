@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 //! # halo2_proofs
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(not(test), no_std)]

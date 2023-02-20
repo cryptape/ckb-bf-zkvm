@@ -1,5 +1,8 @@
 use crate::code;
 use crate::matrix::{InstructionMatrixRow, Matrix, MemoryMatrixRow};
+use alloc::vec::Vec;
+use core::convert::From;
+
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::halo2curves::{bn256::Fr, FieldExt};
 use std::io::{Read, Write};

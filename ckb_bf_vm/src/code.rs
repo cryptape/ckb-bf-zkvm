@@ -1,4 +1,8 @@
+extern crate alloc;
+
 use halo2_proofs::halo2curves::bn256::Fr;
+use alloc::vec::Vec;
+use core::convert::From;
 
 pub const SHL: u8 = 0x3C;
 pub const SHR: u8 = 0x3E;

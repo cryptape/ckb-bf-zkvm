@@ -279,6 +279,14 @@ where
         self.g_lagrange = g_to_lagrange(self.g.iter().map(|g| g.to_curve()).collect(), k);
     }
 
+    fn shrink(&mut self, k: u32) {
+        assert!(k <= self.k);
+
+        let n = 1 << k;
+        self.g.truncate(n);
+        self.g_lagrange = g_to_lagrange(self.g.iter().map(|g| g.to_curve()).collect(), k);
+    }
+
     fn empty_msm(&'params self) -> MSMKZG<E> {
         MSMKZG::new()
     }
