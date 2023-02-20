@@ -43,6 +43,10 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, _public_inputs: &[&[
 
     let proof = transcript.finalize();
     let mut vk_buf = vec![];
+    // for "hello, world":
+    // verifying key can be compressed from 2760
+    // bytes to 1832 bytes with cost of cycles from 75M to 83M
+    //
     pk.get_vk().write(&mut vk_buf, halo2_proofs::SerdeFormat::RawBytes).expect("write");
 
     info!("proof length : {}", proof.len());
