@@ -2,6 +2,7 @@ use ckb_hash::blake2b_256;
 use ckb_jsonrpc_types::JsonBytes;
 use ckb_mock_tx_types::ReprMockTransaction;
 use ckb_types::H256;
+use log::info;
 use serde_json::{from_str, to_string_pretty};
 
 pub fn build_ckb_tx(proof: &[u8], params: &[u8], vk: &[u8], binary_name: &str) {
@@ -20,4 +21,6 @@ pub fn build_ckb_tx(proof: &[u8], params: &[u8], vk: &[u8], binary_name: &str) {
 
     let json = to_string_pretty(&tx).expect("json");
     std::fs::write("res/tx.json", &json).expect("write");
+
+    info!("res/tx.json is generated for binary file: {}", binary_name);
 }
