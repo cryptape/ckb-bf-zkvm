@@ -4,7 +4,6 @@ all: verifier
 
 verifier:
 	cargo build --target riscv64imac-unknown-none-elf --release --package ckb_bf_verifier
-	riscv64-unknown-elf-strip target/riscv64imac-unknown-none-elf/release/ckb_bf_verifier
 	ls -l target/riscv64imac-unknown-none-elf/release/ckb_bf_verifier
 
 ci: verifier
