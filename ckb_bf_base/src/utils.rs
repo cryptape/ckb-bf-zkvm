@@ -1,9 +1,7 @@
 use ckb_bf_vm::code;
-use halo2_proofs::arithmetic::Field;
 use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::plonk::*;
-use rand::rngs::OsRng;
 
 pub const OPCODES: [u8; 8] = [
     code::SHL,
@@ -39,8 +37,9 @@ pub struct BFChallenge {
 impl BFChallenge {
     pub(crate) fn init(cs: &mut ConstraintSystem<Fr>) -> Self {
         Self {
-            mem_prp_init: Fr::random(OsRng),
-            inst_prp_init: Fr::random(OsRng),
+            // TODO: make it random
+            mem_prp_init: Fr::from(0),
+            inst_prp_init: Fr::from(9),
             challenges: [(); 11].map(|_| cs.challenge_usable_after(FirstPhase)),
         }
     }

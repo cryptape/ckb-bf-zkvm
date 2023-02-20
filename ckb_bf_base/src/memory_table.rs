@@ -106,7 +106,8 @@ impl MemoryTable for MemoryTableConfig {
             || "Load Memory Table",
             |mut region| {
                 // init prp
-                let mut prp_prev = region.assign_advice(|| "prp", self.prp, 0, || Value::known(challenges.mem_prp_init))?;
+                let mut prp_prev =
+                    region.assign_advice(|| "prp", self.prp, 0, || Value::known(challenges.mem_prp_init))?;
                 let memory_matrix = &matrix.memory_matrix;
                 for (idx, row) in memory_matrix.iter().enumerate() {
                     if idx < memory_matrix.len() - 1 {

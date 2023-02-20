@@ -2,6 +2,8 @@
 members = [
     "ckb_bf_vm",
     "ckb_bf_prover",
+    "ckb_bf_verifier",
+    "ckb_bf_base",
     "halo2",
     "halo2_gadgets",
     "halo2_proofs",
