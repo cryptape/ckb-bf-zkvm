@@ -10,6 +10,21 @@ A BrainFuck zkVM implementation on CKB, using Halo2.
 * Verifier on CKB(RISC-V)
 * Implement BrainFuck instructions
 
+## How to build
+Install tool (Do it only once):
+```bash
+make install
+```
+
+Build verifier and prover:
+```bash
+make all
+```
+
+Run script on ckb-debugger:
+```bash
+make run-tx
+```
 
 ## Crates
 

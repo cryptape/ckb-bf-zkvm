@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
+    - name: Install tools
+      run: make install
     - name: Run CI
-      run: |
-          make ci
+      run: make ci

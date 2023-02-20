@@ -1,6 +1,6 @@
 use ckb_bf_base::main_config::MyCircuit;
-use ckb_bf_base::utils::DOMAIN;
-use ckb_bf_base::GOD_PRIVATE_KEY;
+use ckb_bf_base::utils::{read_verifier_params, DOMAIN};
+use ckb_bf_base::{GOD_PRIVATE_KEY, SHRINK_K};
 use ckb_bf_prover::ckb_tx::build_ckb_tx;
 
 use ckb_bf_vm::code;
@@ -49,7 +49,7 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, _public_inputs: &[&[
     info!("vk length: {}", vk_buf.len());
 
     // verifier
-    verifier_params.shrink(6);
+    verifier_params.shrink(SHRINK_K);
     let mut verifier_params_buf = vec![];
     verifier_params.write(&mut verifier_params_buf).expect("write");
     info!("verifier parameters length : {}", verifier_params_buf.len());
@@ -72,6 +72,10 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, _public_inputs: &[&[
         &vk_buf[..],
         "target/riscv64imac-unknown-none-elf/release/ckb_bf_verifier",
     );
+
+    // check loading params
+    let _loaded_verifier_params: ParamsVerifierKZG<Bn256> =
+        read_verifier_params(&mut &verifier_params_buf[..]).expect("ParamsVerifierKZG::<Bn256>::read");
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

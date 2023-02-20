@@ -1,7 +1,16 @@
+extern crate alloc;
+
+use alloc::vec::Vec;
 use ckb_bf_vm::code;
+use halo2_gadgets::halo2curves::pairing::Engine;
 use halo2_proofs::circuit::AssignedCell;
 use halo2_proofs::halo2curves::bn256::Fr;
-use halo2_proofs::plonk::*;
+use halo2_proofs::helpers::SerdeCurveAffine;
+use halo2_proofs::poly::kzg::commitment::ParamsVerifierKZG;
+use halo2_proofs::{plonk::*, SerdeFormat};
+use halo2curves::io;
+
+use crate::SHRINK_K;
 
 pub const OPCODES: [u8; 8] = [
     code::SHL,
@@ -64,4 +73,34 @@ impl BFChallenge {
     pub(crate) fn get_input_rs_challenge(self: Self) -> Challenge {
         self.challenges[10]
     }
+}
+
+pub fn read_verifier_params<E: Engine, R: io::Read>(reader: &mut R) -> io::Result<ParamsVerifierKZG<E>>
+where
+    E::G1Affine: SerdeCurveAffine,
+    E::G2Affine: SerdeCurveAffine,
+{
+    let shrink_k = SHRINK_K;
+    let mut k = [0u8; 4];
+    reader.read_exact(&mut k[..])?;
+    let k = u32::from_le_bytes(k);
+    let n = 1 << k;
+    let shrink_n = 1 << shrink_k;
+
+    let format = SerdeFormat::RawBytes;
+
+    let g = (0..shrink_n).map(|_| E::G1Affine::read(reader, format)).collect::<Result<Vec<_>, _>>()?;
+    let g_lagrange = (0..shrink_n).map(|_| E::G1Affine::read(reader, format)).collect::<Result<Vec<_>, _>>()?;
+
+    let g2 = E::G2Affine::read(reader, format)?;
+    let s_g2 = E::G2Affine::read(reader, format)?;
+
+    Ok(ParamsVerifierKZG {
+        k,
+        n: n as u64,
+        g,
+        g_lagrange,
+        g2,
+        s_g2,
+    })
 }

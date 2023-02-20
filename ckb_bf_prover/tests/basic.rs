@@ -1,5 +1,5 @@
-use ckb_bf_prover::main_config::MyCircuit;
-use ckb_bf_prover::utils::DOMAIN;
+use ckb_bf_base::main_config::MyCircuit;
+use ckb_bf_base::utils::DOMAIN;
 use ckb_bf_vm::code;
 use ckb_bf_vm::interpreter::Interpreter;
 use halo2_proofs::dev::MockProver;

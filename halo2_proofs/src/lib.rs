@@ -54,7 +54,7 @@ pub mod poly;
 pub mod transcript;
 
 pub mod dev;
-mod helpers;
+pub mod helpers;
 pub use helpers::SerdeFormat;
 
 pub(crate) fn get_rng() -> rand_chacha::ChaCha20Rng {
