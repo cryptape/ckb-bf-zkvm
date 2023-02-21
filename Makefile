@@ -8,7 +8,7 @@ verifier:
 
 ci: verifier
 	RUST_LOG=info cargo run --release --package ckb_bf_prover -- res/hello_world.bf
-	make run-tx
+	make run-tx | fgrep 'Run result: 0'
 	cd ckb_bf_prover && cargo test
 	cd ckb_bf_vm && cargo test
 
