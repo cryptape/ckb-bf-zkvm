@@ -8,7 +8,9 @@ use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::helpers::SerdeCurveAffine;
 use halo2_proofs::poly::kzg::commitment::ParamsVerifierKZG;
 use halo2_proofs::{plonk::*, SerdeFormat};
-use halo2curves::io;
+use halo2curves::serde::SerdeObject;
+use halo2curves::{io, io::Write, CurveAffine};
+use lz4_flex::{compress_prepend_size};
 
 use crate::SHRINK_K;
 
@@ -103,4 +105,37 @@ where
         g2,
         s_g2,
     })
+}
+
+pub fn compress_vk<W: io::Write, C: CurveAffine + SerdeObject>(
+    vk: &VerifyingKey<C>,
+    writer: &mut W,
+    format: SerdeFormat,
+) -> io::Result<()> {
+    writer.write_all(&vk.domain.k().to_be_bytes())?;
+    writer.write_all(&(vk.fixed_commitments.len() as u32).to_be_bytes())?;
+    for commitment in &vk.fixed_commitments {
+        commitment.write(writer, format)?;
+    }
+    vk.permutation.write(writer, format)?;
+
+    let mut sel_vec = vec![];
+    // write self.selectors
+    for selector in &vk.selectors {
+        // since `selector` is filled with `bool`, we pack them 8 at a time into bytes and then write
+        for bits in selector.chunks(8) {
+            sel_vec.write_all(&[halo2_proofs::helpers::pack(bits)])?;
+        }
+    }
+    let compressed_sel_vec = compress_prepend_size(&sel_vec);
+    writer.write_all(&compressed_sel_vec)?;
+    Ok(())
+}
+
+pub fn read_vk<R: io::Read, C: CurveAffine + SerdeObject>(
+    _vk: VerifyingKey<C>,
+    _reader: &mut R,
+    _format: SerdeFormat,
+) -> io::Result<()> {
+    Ok(())
 }

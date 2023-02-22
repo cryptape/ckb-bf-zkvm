@@ -1,5 +1,5 @@
 use ckb_bf_base::main_config::MyCircuit;
-use ckb_bf_base::utils::{read_verifier_params, DOMAIN};
+use ckb_bf_base::utils::{read_verifier_params, DOMAIN, compress_vk};
 use ckb_bf_base::{GOD_PRIVATE_KEY, SHRINK_K};
 use ckb_bf_prover::ckb_tx::build_ckb_tx;
 
@@ -42,15 +42,20 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, _public_inputs: &[&[
     info!("create_proof done");
 
     let proof = transcript.finalize();
+    info!("proof length : {}", proof.len());
+    let vk = pk.get_vk();
+
     let mut vk_buf = vec![];
     // for "hello, world":
-    // verifying key can be compressed from 2760
+    // verifying key can be compressed(RawBytes->Processed) from 2760
     // bytes to 1832 bytes with cost of cycles from 75M to 83M
-    //
-    pk.get_vk().write(&mut vk_buf, halo2_proofs::SerdeFormat::RawBytes).expect("write");
-
-    info!("proof length : {}", proof.len());
+    // 
+    vk.write(&mut vk_buf, halo2_proofs::SerdeFormat::RawBytes).expect("write");
     info!("vk length: {}", vk_buf.len());
+
+    let mut compressed_vk_buf = vec![];
+    compress_vk(vk, &mut compressed_vk_buf, halo2_proofs::SerdeFormat::RawBytes).expect("compress_vk");
+    info!("vk length (compressed): {}", compressed_vk_buf.len());
 
     // verifier
     verifier_params.shrink(SHRINK_K);
@@ -66,7 +71,7 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, _public_inputs: &[&[
         Challenge255<G1Affine>,
         Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
         SingleStrategy<'_, Bn256>,
-    >(&verifier_params, pk.get_vk(), strategy, &[], &mut verifier_transcript)
+    >(&verifier_params, vk, strategy, &[], &mut verifier_transcript)
     .expect("verify_proof");
 
     // build ckb tx

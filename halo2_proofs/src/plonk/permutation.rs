@@ -90,7 +90,7 @@ impl<C: CurveAffine> VerifyingKey<C> {
         &self.commitments
     }
 
-    pub(crate) fn write<W: io::Write>(&self, writer: &mut W, format: SerdeFormat) -> io::Result<()>
+    pub fn write<W: io::Write>(&self, writer: &mut W, format: SerdeFormat) -> io::Result<()>
     where
         C: SerdeCurveAffine,
     {
@@ -100,7 +100,7 @@ impl<C: CurveAffine> VerifyingKey<C> {
         Ok(())
     }
 
-    pub(crate) fn read<R: io::Read>(
+    pub fn read<R: io::Read>(
         reader: &mut R,
         argument: &Argument,
         format: SerdeFormat,
@@ -114,7 +114,7 @@ impl<C: CurveAffine> VerifyingKey<C> {
         Ok(VerifyingKey { commitments })
     }
 
-    pub(crate) fn bytes_length(&self) -> usize {
+    pub fn bytes_length(&self) -> usize {
         self.commitments.len() * C::default().to_bytes().as_ref().len()
     }
 }
