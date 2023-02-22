@@ -39,7 +39,7 @@ where
     type Guard = GuardKZG<'params, E>;
     type MSMAccumulator = DualMSM<'params, E>;
 
-    const QUERY_INSTANCE: bool = true;
+    const QUERY_INSTANCE: bool = false;
 
     fn new(params: &'params ParamsKZG<E>) -> Self {
         Self { params }
