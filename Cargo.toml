@@ -9,8 +9,14 @@ members = [
     "halo2_proofs",
     "halo2curves",
     "poseidon",
+    "bn254_benchmark"
 ]
 
 [profile.release.package.ckb_bf_verifier]
 debug = false
 strip = true
+
+[profile.release.package.bn254_benchmark]
+debug = false
+strip = true
+
