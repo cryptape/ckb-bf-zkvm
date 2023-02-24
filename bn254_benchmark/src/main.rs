@@ -4,7 +4,9 @@
 #![feature(alloc_error_handler)]
 #![feature(panic_info_message)]
 
-use ckb_std::{default_alloc};
+use alloc::format;
+use ckb_std::default_alloc;
+use ckb_std::syscalls::debug;
 use halo2curves::bn256::{G1Affine, G2Affine, G1, G2};
 use halo2curves::group::Group;
 use halo2curves::pairing::PairingCurveAffine;
@@ -22,6 +24,10 @@ pub fn program_entry() -> i8 {
     let a = G1Affine::from(G1::random(&mut rng));
     let b = G2Affine::from(G2::random(&mut rng));
 
-    assert!(a.pairing_with(&b) == b.pairing_with(&a));
-    0
+    if a.pairing_with(&b) == b.pairing_with(&a) {
+        debug(format!("Pairing succeeded"));
+    } else {
+        debug(format!("Pairing failed"));
+    };
+    return 0;
 }

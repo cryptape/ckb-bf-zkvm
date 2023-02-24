@@ -26,4 +26,5 @@ install:
 	sudo apt install gcc-riscv64-unknown-elf
 	cargo install --git https://github.com/nervosnetwork/ckb-standalone-debugger ckb-debugger
 
-.PHONY: bn254_benchmark
+.PHONY: bn254_benchmark ci verifier
+
