@@ -47,7 +47,7 @@ impl BFChallenge {
     pub(crate) fn init(cs: &mut ConstraintSystem<Fr>) -> Self {
         Self {
             // TODO: make it random
-            mem_prp_init: Fr::from(0),
+            mem_prp_init: Fr::from(3),
             inst_prp_init: Fr::from(9),
             challenges: [(); 11].map(|_| cs.challenge_usable_after(FirstPhase)),
         }
