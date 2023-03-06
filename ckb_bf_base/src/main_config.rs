@@ -10,7 +10,6 @@ use halo2_proofs::arithmetic::Field;
 use halo2_proofs::circuit::{Layouter, SimpleFloorPlanner};
 use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::plonk::*;
-use halo2_proofs::poly::Rotation;
 /**
  * TODO: What's Misssing?
  * All proofs from the original tut are implemented except one
@@ -32,8 +31,6 @@ pub struct MainConfig<const RANGE: usize> {
     output_config: OutputTableConfig,
     input_config: InputTableConfig,
     challenges: BFChallenge,
-    final_states: [Column<Advice>; 8],
-    s_final: Selector,
 }
 
 impl<const RANGE: usize> MainTable for MainConfig<RANGE> {
@@ -51,40 +48,6 @@ impl<const RANGE: usize> MainTable for MainConfig<RANGE> {
         i_config.configure_second_phase(cs, challenges);
         output_config.configure_second_phase(cs, challenges);
         input_config.configure_second_phase(cs, challenges);
-        // main gates and columns
-        let final_states = [(); 8].map(|_| cs.advice_column());
-        final_states.map(|col| cs.enable_equality(col));
-        let s_final = cs.selector();
-        cs.create_gate("Memory and processor prp should have same terminal state", |vc| {
-            let processor_prp = vc.query_advice(final_states[0], Rotation::cur());
-            let memory_prp = vc.query_advice(final_states[1], Rotation::cur());
-            let s_final = vc.query_selector(s_final);
-            vec![s_final * (processor_prp - memory_prp)]
-        });
-        cs.create_gate(
-            "Output and processor table should have same terminal state for output rs",
-            |vc| {
-                let output_rs = vc.query_advice(final_states[2], Rotation::cur());
-                let processor_rs = vc.query_advice(final_states[3], Rotation::cur());
-                let s_final = vc.query_selector(s_final);
-                vec![s_final * (processor_rs - output_rs)]
-            },
-        );
-        cs.create_gate(
-            "Input and processor table should have same terminal state for input rs",
-            |vc| {
-                let input_rs = vc.query_advice(final_states[4], Rotation::cur());
-                let processor_rs = vc.query_advice(final_states[5], Rotation::cur());
-                let s_final = vc.query_selector(s_final);
-                vec![s_final * (processor_rs - input_rs)]
-            },
-        );
-        cs.create_gate("instruction and processor prp should have same terminal state", |vc| {
-            let processor_inst_prp = vc.query_advice(final_states[6], Rotation::cur());
-            let inst_prp = vc.query_advice(final_states[7], Rotation::cur());
-            let s_final = vc.query_selector(s_final);
-            vec![s_final * (processor_inst_prp - inst_prp)]
-        });
 
         Self {
             p_config,
@@ -93,8 +56,6 @@ impl<const RANGE: usize> MainTable for MainConfig<RANGE> {
             output_config,
             input_config,
             challenges,
-            final_states,
-            s_final,
         }
     }
 
@@ -108,30 +69,10 @@ impl<const RANGE: usize> MainTable for MainConfig<RANGE> {
         layouter.assign_region(
             || "Extension Column",
             |mut region| {
-                self.s_final.enable(&mut region, 0)?;
-                processor_mem_prp.copy_advice(
-                    || "processor mem prp final state",
-                    &mut region,
-                    self.final_states[0],
-                    0,
-                )?;
-                memory_prp.copy_advice(|| "memory prp final state", &mut region, self.final_states[1], 0)?;
-                output_rs.copy_advice(|| "output table rs", &mut region, self.final_states[2], 0)?;
-                processor_output_rs.copy_advice(
-                    || "processor table output rs",
-                    &mut region,
-                    self.final_states[3],
-                    0,
-                )?;
-                input_rs.copy_advice(|| "input table rs", &mut region, self.final_states[4], 0)?;
-                processor_input_rs.copy_advice(|| "processor table input rs", &mut region, self.final_states[5], 0)?;
-                processor_inst_prp.copy_advice(
-                    || "processor inst prp final state",
-                    &mut region,
-                    self.final_states[6],
-                    0,
-                )?;
-                inst_prp.copy_advice(|| "inst prp final state", &mut region, self.final_states[7], 0)?;
+                region.constrain_equal(processor_mem_prp.cell(), memory_prp.cell())?;
+                region.constrain_equal(output_rs.cell(), processor_output_rs.cell())?;
+                region.constrain_equal(input_rs.cell(), processor_input_rs.cell())?;
+                region.constrain_equal(processor_inst_prp.cell(), inst_prp.cell())?;
                 Ok(())
             },
         )
