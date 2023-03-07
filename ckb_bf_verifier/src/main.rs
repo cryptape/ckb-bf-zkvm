@@ -95,7 +95,7 @@ pub fn program_entry() -> i8 {
         Challenge255<G1Affine>,
         Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
         SingleStrategy<'_, Bn256>,
-    >(&verifier_params, &vk, strategy, &[], &mut verifier_transcript);
+    >(&verifier_params, &vk, strategy, &[&[]], &mut verifier_transcript);
     if res.is_err() {
         debug(format!("Error on verify_proof: {:?}", res.err()));
         return -2;

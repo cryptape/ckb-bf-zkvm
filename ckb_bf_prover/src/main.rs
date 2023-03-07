@@ -37,7 +37,7 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, _public_inputs: &[&[
         XorShiftRng,
         Blake2bWrite<Vec<u8>, G1Affine, Challenge255<G1Affine>>,
         MyCircuit<Fr, DOMAIN>,
-    >(&general_params, &pk, &[circuit], &[], rng, &mut transcript)
+    >(&general_params, &pk, &[circuit], &[&[]], rng, &mut transcript)
     .expect("create_proof");
     info!("create_proof done");
 
@@ -66,7 +66,7 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, _public_inputs: &[&[
         Challenge255<G1Affine>,
         Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
         SingleStrategy<'_, Bn256>,
-    >(&verifier_params, pk.get_vk(), strategy, &[], &mut verifier_transcript)
+    >(&verifier_params, pk.get_vk(), strategy, &[&[]], &mut verifier_transcript)
     .expect("verify_proof");
 
     // build ckb tx
