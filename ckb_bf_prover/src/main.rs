@@ -20,7 +20,7 @@ use std::io::Read;
 
 fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, public_inputs: &[&[Fr]]) {
     let s = Fr::from_u128(GOD_PRIVATE_KEY);
-    info!("Start trusted setup, using unsafe GOD_PRIVATE_KEY (42) ...");
+    info!("Start trusted setup (k={}), using unsafe GOD_PRIVATE_KEY (42) ...", k);
     let general_params = ParamsKZG::<Bn256>::unsafe_setup_with_s(k, s);
     let mut verifier_params: ParamsVerifierKZG<Bn256> = general_params.verifier_params().clone();
     let vk = keygen_vk(&general_params, &circuit).expect("keygen_vk");
@@ -49,7 +49,6 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, public_inputs: &[&[F
     //
     pk.get_vk().write(&mut vk_buf, halo2_proofs::SerdeFormat::RawBytes).expect("write");
 
-    info!("k: {}", k);
     info!("proof length : {}", proof.len());
     info!("vk length: {}", vk_buf.len());
 
@@ -76,14 +75,18 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, public_inputs: &[&[F
     )
     .expect("verify_proof");
 
-    // if prove passes, all ops should be valid and occupy one byte
+    // if proof passes, all ops should be valid and occupy one byte
     let code: Vec<u8> = public_inputs[0].iter().skip(1).map(|x| Fr::to_bytes(x)[0]).collect();
+    // input are always within 0-255 if proof passes
+    let input: Vec<u8> = public_inputs[1].iter().skip(1).map(|x| Fr::to_bytes(x)[0]).collect();
+
     // build ckb tx
     build_ckb_tx(
         &proof[..],
         &verifier_params_buf[..],
         &vk_buf[..],
         &code[..],
+        &input[..],
         "target/riscv64imac-unknown-none-elf/release/ckb_bf_verifier",
     );
 
@@ -102,13 +105,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     f.read_to_end(&mut c)?;
     let mut i = Interpreter::new();
     let mut code = code::compile(c);
+    let mut input: Vec<Fr> = vec![];
+    if args.len() == 3 {
+        input = code::easygen(&args[2]);
+        i.set_input(input.clone());
+    }
     i.set_code(code.clone());
     i.run();
-    let k = i.matrix.instruction_matrix.len().next_power_of_two().trailing_zeros();
+    // the bf lookup table has k=8
+    let k = std::cmp::max(
+        i.matrix.instruction_matrix.len().next_power_of_two().trailing_zeros(),
+        9,
+    );
 
     // prepare public input
     code.insert(0, Fr::from(code.len() as u64));
-    let instances = [&code.clone()[..]];
+    input.insert(0, Fr::from(input.len() as u64));
+    let instances = [&code.clone()[..], &input.clone()[..]];
 
     let circuit = MyCircuit::<Fr, { DOMAIN }>::new(i.matrix);
     prove_and_verify(k, circuit, &instances);

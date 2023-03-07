@@ -73,12 +73,29 @@ pub fn program_entry() -> i8 {
             return -1;
         }
     };
-    // deserialize the code
     let mut code = [Fr::zero(); 32 * 1024];
     code[0] = Fr::from(code_len as u64);
     for idx in 0..code_len {
         let op = code_buffer[idx];
         code[idx + 1] = Fr::from_raw([op as u64, 0, 0, 0]);
+    }
+
+    let mut input_buffer = [0u8; 32 * 1024];
+    let input_len = match load_witness(&mut input_buffer, 0, 4, Source::Input) {
+        Ok(l) => {
+            debug(format!("Loading input length: {:?}", l));
+            l
+        }
+        Err(e) => {
+            debug(format!("Loading input error: {:?}", e));
+            return -1;
+        }
+    };
+    let mut input = [Fr::zero(); 32 * 1024];
+    input[0] = Fr::from(input_len as u64);
+    for idx in 0..input_len {
+        let op = input_buffer[idx];
+        input[idx + 1] = Fr::from_raw([op as u64, 0, 0, 0]);
     }
 
     let verifier_params = {
@@ -103,7 +120,7 @@ pub fn program_entry() -> i8 {
     };
 
     // Prepare instances
-    let instances = [&code[0..(code_len + 1)]];
+    let instances = [&code[0..(code_len + 1)], &input[0..(input_len + 1)]];
 
     let mut verifier_transcript = Blake2bRead::<_, G1Affine, Challenge255<_>>::init(&proof_buffer[..proof_len]);
     let strategy = SingleStrategy::new(&verifier_params);

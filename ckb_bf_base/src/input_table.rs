@@ -11,14 +11,16 @@ pub trait InputTable {
     fn load_table(
         &self,
         layouter: &mut impl Layouter<Fr>,
+        input: &Column<Instance>,
         matrix: &Matrix,
         challenge: BFChallenge,
-    ) -> Result<BFCell, Error>;
+    ) -> Result<(BFCell, BFCell), Error>;
 }
 
 #[derive(Clone, Debug, Copy)]
 pub struct InputTableConfig {
     val: Column<Advice>,
+    input_len: Column<Advice>,
     rs: Column<Advice>, // running sum
     s_rs: Selector,
 }
@@ -26,10 +28,18 @@ pub struct InputTableConfig {
 impl InputTable for InputTableConfig {
     fn configure(cs: &mut ConstraintSystem<Fr>) -> Self {
         let val = cs.advice_column_in(FirstPhase);
+        let input_len = cs.advice_column_in(FirstPhase);
         let rs = cs.advice_column_in(SecondPhase);
+        cs.enable_equality(val);
         cs.enable_equality(rs);
+        cs.enable_equality(input_len);
         let s_rs = cs.selector();
-        Self { val, rs, s_rs }
+        Self {
+            val,
+            input_len,
+            rs,
+            s_rs,
+        }
     }
 
     fn configure_second_phase(self, cs: &mut ConstraintSystem<Fr>, challenge: BFChallenge) {
@@ -46,23 +56,31 @@ impl InputTable for InputTableConfig {
     fn load_table(
         &self,
         layouter: &mut impl Layouter<Fr>,
+        inputs: &Column<Instance>,
         matrix: &Matrix,
         challenge: BFChallenge,
-    ) -> Result<BFCell, Error> {
+    ) -> Result<(BFCell, BFCell), Error> {
         let gamma = layouter.get_challenge(challenge.get_input_rs_challenge());
         layouter.assign_region(
             || "Load input table",
             |mut region| {
                 // init rs_0
                 let mut rs_prev = region.assign_advice(|| "rs", self.rs, 0, || Value::known(Fr::zero()))?;
-                let input_matrix = &matrix.input_matrix;
-                for (idx, v) in input_matrix.iter().enumerate() {
+                let len = region.assign_advice(
+                    || "Input length",
+                    self.input_len,
+                    0,
+                    || Value::known(Fr::from(matrix.input_matrix.len() as u64)),
+                )?;
+                for idx in 0..matrix.input_matrix.len() {
                     self.s_rs.enable(&mut region, idx)?;
-                    let val = region.assign_advice(|| "Output val", self.val, idx, || Value::known(*v))?;
-                    let rs = gamma * rs_prev.value() + val.value();
+                    // copy from instance
+                    let input =
+                        region.assign_advice_from_instance(|| "input value", *inputs, idx + 1, self.val, idx)?;
+                    let rs = gamma * rs_prev.value() + input.value();
                     rs_prev = region.assign_advice(|| "rs", self.rs, idx + 1, || rs)?;
                 }
-                Ok(rs_prev)
+                Ok((len, rs_prev))
             },
         )
     }

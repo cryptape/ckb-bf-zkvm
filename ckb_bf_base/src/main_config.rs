@@ -11,13 +11,6 @@ use halo2_proofs::arithmetic::Field;
 use halo2_proofs::circuit::{Layouter, SimpleFloorPlanner};
 use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::plonk::*;
-/**
- * TODO: What's Misssing?
- * All proofs from the original tut are implemented except one
- * We need to prove the instruction table contains the original program
- * This require us to have another program table (which contains the program, sorted by ip)
- * After that, we can finish the last evaluation argument and prove program + trace = instruction table.
- */
 
 pub trait MainTable {
     fn configure(cs: &mut ConstraintSystem<Fr>) -> Self;
@@ -34,6 +27,8 @@ pub struct MainConfig<const RANGE: usize> {
     program_config: ProgramTableConfig,
     // The code instance, index 0 stores the length of the code.
     code: Column<Instance>,
+    // index 0 store the length of the input
+    input: Column<Instance>,
     challenges: BFChallenge,
 }
 
@@ -42,6 +37,8 @@ impl<const RANGE: usize> MainTable for MainConfig<RANGE> {
         // Instance Column (order matters)
         let code = cs.instance_column();
         cs.enable_equality(code);
+        let input = cs.instance_column();
+        cs.enable_equality(input);
         // First phase gates and tables
         let p_config = ProcessorTableConfig::configure(cs);
         let m_config = MemoryTableConfig::configure(cs);
@@ -66,6 +63,7 @@ impl<const RANGE: usize> MainTable for MainConfig<RANGE> {
             input_config,
             program_config,
             code,
+            input,
             challenges,
         }
     }
@@ -76,10 +74,11 @@ impl<const RANGE: usize> MainTable for MainConfig<RANGE> {
         let memory_prp = self.m_config.load_table(layouter, matrix, self.challenges)?;
         let (inst_code_rs, inst_prp) = self.i_config.load_table(layouter, matrix, self.challenges)?;
         let output_rs = self.output_config.load_table(layouter, matrix, self.challenges)?;
-        let input_rs = self.input_config.load_table(layouter, matrix, self.challenges)?;
+        let (input_len, input_rs) = self.input_config.load_table(layouter, &self.input, matrix, self.challenges)?;
         let (code_len, code_rs) = self.program_config.load_table(layouter, &self.code, matrix, self.challenges)?;
-        // Make sure the code length is correct
+        // Make sure the code and input length are correct
         layouter.constrain_instance(code_len.cell(), self.code, 0)?;
+        layouter.constrain_instance(input_len.cell(), self.input, 0)?;
         layouter.assign_region(
             || "Extension Column",
             |mut region| {
