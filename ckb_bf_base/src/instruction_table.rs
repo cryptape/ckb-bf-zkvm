@@ -157,7 +157,7 @@ impl InstructionTable for InstructionTableConfig {
                         // I condition is enabled except last row
                         self.s_i.enable(&mut region, idx)?;
                         self.s_prp.enable(&mut region, idx)?;
-                        // self.s_rs.enable(&mut region, idx)?;
+                        self.s_rs.enable(&mut region, idx)?;
                     }
 
                     region.assign_advice(|| "ip", self.ip, idx, || Value::known(row.instruction_pointer))?;
