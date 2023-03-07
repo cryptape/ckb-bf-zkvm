@@ -14,7 +14,7 @@ pub trait InstructionTable {
         layouter: &mut impl Layouter<Fr>,
         matrix: &Matrix,
         challenges: BFChallenge,
-    ) -> Result<BFCell, Error>;
+    ) -> Result<(BFCell, BFCell), Error>;
 }
 
 #[derive(Clone, Debug, Copy)]
@@ -23,8 +23,10 @@ pub struct InstructionTableConfig {
     ci: Column<Advice>,
     ni: Column<Advice>,
     prp: Column<Advice>,
+    rs: Column<Advice>,
     s_prp: Selector,
     s_prp_adhoc: Selector,
+    s_rs: Selector,
     s_i: Selector, // Selector for condition I category (Instruction Table)
 }
 
@@ -36,8 +38,11 @@ impl InstructionTable for InstructionTableConfig {
         let ci = cs.advice_column_in(FirstPhase);
         let ni = cs.advice_column_in(FirstPhase);
         let prp = cs.advice_column_in(SecondPhase);
+        let rs = cs.advice_column_in(SecondPhase);
         cs.enable_equality(prp);
+        cs.enable_equality(rs);
         let s_prp = cs.selector();
+        let s_rs = cs.selector();
         let s_prp_adhoc = cs.selector();
         let s_i = cs.selector();
 
@@ -70,17 +75,33 @@ impl InstructionTable for InstructionTableConfig {
             ci,
             ni,
             prp,
+            rs,
             s_i,
             s_prp,
             s_prp_adhoc,
+            s_rs,
         }
     }
 
     fn configure_second_phase(self, cs: &mut ConstraintSystem<Fr>, challenges: BFChallenge) {
         let one = Expression::Constant(Fr::one());
-        cs.create_gate("Instruction prp should have valid transition", |vc| {
-            let ip_next = vc.query_advice(self.ip, Rotation::next());
+        cs.create_gate("Code rs should have valid transition", |vc| {
             let ip_cur = vc.query_advice(self.ip, Rotation::cur());
+            let ip_next = vc.query_advice(self.ip, Rotation::next());
+            let ci = vc.query_advice(self.ci, Rotation::cur());
+            let s_rs = vc.query_selector(self.s_rs);
+            let gamma = vc.query_challenge(challenges.get_inst_rs_challenges());
+            let rs_cur = vc.query_advice(self.rs, Rotation::cur());
+            let rs_next = vc.query_advice(self.rs, Rotation::next());
+            vec![
+                s_rs * ((ip_next.clone() - ip_cur.clone()) * (rs_next.clone() - (rs_cur.clone() * gamma + ci))
+                    + (ip_next - ip_cur - one.clone()) * (rs_next - rs_cur)),
+            ]
+        });
+
+        cs.create_gate("Instruction prp should have valid transition", |vc| {
+            let ip_cur = vc.query_advice(self.ip, Rotation::cur());
+            let ip_next = vc.query_advice(self.ip, Rotation::next());
             let ci = vc.query_advice(self.ci, Rotation::cur());
             let ni = vc.query_advice(self.ni, Rotation::cur());
             let prp_next = vc.query_advice(self.prp, Rotation::next());
@@ -120,13 +141,15 @@ impl InstructionTable for InstructionTableConfig {
         layouter: &mut impl Layouter<Fr>,
         matrix: &Matrix,
         challenges: BFChallenge,
-    ) -> Result<BFCell, Error> {
+    ) -> Result<(BFCell, BFCell), Error> {
         let [alpha, d, e, f] = challenges.get_inst_prp_challenges().map(|c| layouter.get_challenge(c));
+        let gamma = layouter.get_challenge(challenges.get_inst_rs_challenges());
         layouter.assign_region(
             || "Load Instruction Table",
             |mut region| {
                 let mut prp_prev =
                     region.assign_advice(|| "prp", self.prp, 0, || Value::known(challenges.inst_prp_init))?;
+                let mut rs_prev = region.assign_advice(|| "rs", self.rs, 0, || Value::known(Fr::zero()))?;
                 let instruction_matrix = &matrix.instruction_matrix;
                 self.s_prp_adhoc.enable(&mut region, instruction_matrix.len())?;
                 for (idx, row) in instruction_matrix.iter().enumerate() {
@@ -134,6 +157,7 @@ impl InstructionTable for InstructionTableConfig {
                         // I condition is enabled except last row
                         self.s_i.enable(&mut region, idx)?;
                         self.s_prp.enable(&mut region, idx)?;
+                        // self.s_rs.enable(&mut region, idx)?;
                     }
 
                     region.assign_advice(|| "ip", self.ip, idx, || Value::known(row.instruction_pointer))?;
@@ -141,16 +165,25 @@ impl InstructionTable for InstructionTableConfig {
                     let ni = region.assign_advice(|| "ni", self.ni, idx, || Value::known(row.next_instruction))?;
                     let next_row = instruction_matrix.get(idx + 1);
                     let ip_cur = row.instruction_pointer;
-                    // ad-hoc solution to include the last dummy row
+                    // cal and assign rs
+                    // ad-hoc solution to include the last dummy row for prp
                     let ip_next = next_row.unwrap_or(row).instruction_pointer;
+                    // cal and assign prp
                     let prp = if ip_next == ip_cur {
                         prp_prev.value() * (alpha - d * Value::known(ip_cur) - e * ci.value() - f * ni.value())
                     } else {
                         prp_prev.value().map(|x| *x)
                     };
                     prp_prev = region.assign_advice(|| "prp", self.prp, idx + 1, || prp)?;
+                    // cal and assign rs
+                    let rs = if ip_next != ip_cur {
+                        gamma * rs_prev.value() + ci.value()
+                    } else {
+                        rs_prev.value().map(|x| *x)
+                    };
+                    rs_prev = region.assign_advice(|| "code rs", self.rs, idx + 1, || rs)?;
                 }
-                Ok(prp_prev)
+                Ok((rs_prev, prp_prev))
             },
         )
     }

@@ -1,10 +1,9 @@
 extern crate alloc;
 use alloc::vec::Vec;
 
-
 use crate::interpreter::Register;
-use halo2_proofs::halo2curves::bn256::Fr;
 use core::convert::From;
+use halo2_proofs::halo2curves::bn256::Fr;
 
 #[derive(Default)]
 pub struct Matrix {
@@ -13,6 +12,7 @@ pub struct Matrix {
     pub memory_matrix: Vec<MemoryMatrixRow>,
     pub input_matrix: Vec<Fr>,
     pub output_matrix: Vec<Fr>,
+    pub program: Vec<Fr>,
 }
 
 pub struct InstructionMatrixRow {
