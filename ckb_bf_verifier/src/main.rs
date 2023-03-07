@@ -6,7 +6,7 @@
 
 use alloc::format;
 use ckb_bf_base::main_config::MyCircuit;
-use ckb_bf_base::utils::{DOMAIN, read_verifier_params};
+use ckb_bf_base::utils::{read_verifier_params, DOMAIN};
 use ckb_std::{
     ckb_constants::Source,
     default_alloc,
@@ -19,17 +19,14 @@ default_alloc!();
 
 use halo2_proofs::{
     plonk::{verify_proof, VerifyingKey},
-    poly::{
-        kzg::{
-            commitment::{KZGCommitmentScheme, ParamsVerifierKZG},
-            multiopen::VerifierSHPLONK,
-            strategy::SingleStrategy,
-        },
+    poly::kzg::{
+        commitment::{KZGCommitmentScheme, ParamsVerifierKZG},
+        multiopen::VerifierSHPLONK,
+        strategy::SingleStrategy,
     },
     transcript::{Blake2bRead, Challenge255, TranscriptReadBuffer},
 };
 use halo2curves::io;
-
 
 pub fn program_entry() -> i8 {
     let mut params_buffer = [0u8; 32 * 1024];
@@ -37,7 +34,7 @@ pub fn program_entry() -> i8 {
         Ok(l) => {
             debug(format!("Loading params length: {:?}", l));
             l
-        },
+        }
         Err(e) => {
             debug(format!("Loading params error {:?}", e));
             return -1;
@@ -48,7 +45,7 @@ pub fn program_entry() -> i8 {
         Ok(l) => {
             debug(format!("Loading vk length: {:?}", l));
             l
-        },
+        }
         Err(e) => {
             debug(format!("Loading vk error {:?}", e));
             return -1;
@@ -59,15 +56,33 @@ pub fn program_entry() -> i8 {
         Ok(l) => {
             debug(format!("Loading proof length: {:?}", l));
             l
-        },
+        }
         Err(e) => {
             debug(format!("Loading proof error {:?}", e));
             return -1;
         }
     };
+    let mut code_buffer = [0u8; 32 * 1024];
+    let code_len = match load_witness(&mut code_buffer, 0, 3, Source::Input) {
+        Ok(l) => {
+            debug(format!("Loading program length: {:?}", l));
+            l
+        }
+        Err(e) => {
+            debug(format!("Loading program error: {:?}", e));
+            return -1;
+        }
+    };
+    // deserialize the code
+    let mut code = [Fr::zero(); 32 * 1024];
+    code[0] = Fr::from(code_len as u64);
+    for idx in 0..code_len {
+        let op = code_buffer[idx];
+        code[idx + 1] = Fr::from_raw([op as u64, 0, 0, 0]);
+    }
 
     let verifier_params = {
-        let r : io::Result<ParamsVerifierKZG<Bn256>> = read_verifier_params(&mut &params_buffer[..params_len]);
+        let r: io::Result<ParamsVerifierKZG<Bn256>> = read_verifier_params(&mut &params_buffer[..params_len]);
         if r.is_err() {
             debug(format!("Error on ParamsVerifierKZG::<Bn256>::read: {:?}", r.err()));
             return -1;
@@ -87,6 +102,9 @@ pub fn program_entry() -> i8 {
         r.unwrap()
     };
 
+    // Prepare instances
+    let instances = [&code[0..(code_len + 1)]];
+
     let mut verifier_transcript = Blake2bRead::<_, G1Affine, Challenge255<_>>::init(&proof_buffer[..proof_len]);
     let strategy = SingleStrategy::new(&verifier_params);
     let res = verify_proof::<
@@ -95,7 +113,7 @@ pub fn program_entry() -> i8 {
         Challenge255<G1Affine>,
         Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
         SingleStrategy<'_, Bn256>,
-    >(&verifier_params, &vk, strategy, &[&[]], &mut verifier_transcript);
+    >(&verifier_params, &vk, strategy, &[&instances], &mut verifier_transcript);
     if res.is_err() {
         debug(format!("Error on verify_proof: {:?}", res.err()));
         return -2;
