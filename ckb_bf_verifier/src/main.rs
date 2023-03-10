@@ -6,7 +6,7 @@
 
 use alloc::format;
 use ckb_bf_base::main_config::MyCircuit;
-use ckb_bf_base::utils::{DOMAIN, read_verifier_params};
+use ckb_bf_base::utils::{read_verifier_params, DOMAIN};
 use ckb_std::{
     ckb_constants::Source,
     default_alloc,
@@ -19,17 +19,14 @@ default_alloc!();
 
 use halo2_proofs::{
     plonk::{verify_proof, VerifyingKey},
-    poly::{
-        kzg::{
-            commitment::{KZGCommitmentScheme, ParamsVerifierKZG},
-            multiopen::VerifierSHPLONK,
-            strategy::SingleStrategy,
-        },
+    poly::kzg::{
+        commitment::{KZGCommitmentScheme, ParamsVerifierKZG},
+        multiopen::VerifierSHPLONK,
+        strategy::SingleStrategy,
     },
     transcript::{Blake2bRead, Challenge255, TranscriptReadBuffer},
 };
 use halo2curves::io;
-
 
 pub fn program_entry() -> i8 {
     let mut params_buffer = [0u8; 32 * 1024];
@@ -37,7 +34,7 @@ pub fn program_entry() -> i8 {
         Ok(l) => {
             debug(format!("Loading params length: {:?}", l));
             l
-        },
+        }
         Err(e) => {
             debug(format!("Loading params error {:?}", e));
             return -1;
@@ -48,7 +45,7 @@ pub fn program_entry() -> i8 {
         Ok(l) => {
             debug(format!("Loading vk length: {:?}", l));
             l
-        },
+        }
         Err(e) => {
             debug(format!("Loading vk error {:?}", e));
             return -1;
@@ -59,7 +56,7 @@ pub fn program_entry() -> i8 {
         Ok(l) => {
             debug(format!("Loading proof length: {:?}", l));
             l
-        },
+        }
         Err(e) => {
             debug(format!("Loading proof error {:?}", e));
             return -1;
@@ -67,7 +64,7 @@ pub fn program_entry() -> i8 {
     };
 
     let verifier_params = {
-        let r : io::Result<ParamsVerifierKZG<Bn256>> = read_verifier_params(&mut &params_buffer[..params_len]);
+        let r: io::Result<ParamsVerifierKZG<Bn256>> = read_verifier_params(&mut &params_buffer[..params_len]);
         if r.is_err() {
             debug(format!("Error on ParamsVerifierKZG::<Bn256>::read: {:?}", r.err()));
             return -1;
