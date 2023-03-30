@@ -29,7 +29,7 @@ use halo2_proofs::{
 use halo2curves::io;
 
 pub fn program_entry() -> i8 {
-    let mut params_buffer = [0u8; 32 * 1024];
+    let mut params_buffer = [0u8; 1024];
     let params_len = match load_witness(&mut params_buffer, 0, 0, Source::Input) {
         Ok(l) => {
             debug(format!("Loading params length: {:?}", l));
@@ -40,7 +40,7 @@ pub fn program_entry() -> i8 {
             return -1;
         }
     };
-    let mut vk_buffer = [0u8; 32 * 1024];
+    let mut vk_buffer = [0u8; 4096];
     let vk_len = match load_witness(&mut vk_buffer, 0, 1, Source::Input) {
         Ok(l) => {
             debug(format!("Loading vk length: {:?}", l));
@@ -51,7 +51,7 @@ pub fn program_entry() -> i8 {
             return -1;
         }
     };
-    let mut proof_buffer = [0u8; 32 * 1024];
+    let mut proof_buffer = [0u8; 8192];
     let proof_len = match load_witness(&mut proof_buffer, 0, 2, Source::Input) {
         Ok(l) => {
             debug(format!("Loading proof length: {:?}", l));

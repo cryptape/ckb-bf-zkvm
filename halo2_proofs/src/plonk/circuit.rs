@@ -6,6 +6,8 @@ use core::{
     ops::{Neg, Sub},
 };
 use ff::Field;
+use crate::helpers::{SerdeFormat, SerdePrimeField};
+use crate::io;
 
 use super::{lookup, permutation, Assigned, Error};
 use crate::dev::metadata;
@@ -19,6 +21,7 @@ use alloc::boxed::Box;
 use sealed::SealedPhase;
 
 mod compress_selectors;
+pub use compress_selectors::SelectorAssignment;
 
 /// A column type
 pub trait ColumnType:
@@ -712,6 +715,169 @@ pub enum Expression<F> {
     Product(Box<Expression<F>>, Box<Expression<F>>),
     /// This is a scaled polynomial
     Scaled(Box<Expression<F>>, F),
+}
+
+impl<F: SerdePrimeField> Expression<F> {
+    fn write<W: io::Write>(&self, writer: &mut W, format: SerdeFormat) -> io::Result<()> {
+        match self {
+            Expression::Constant(scalar) => {
+                // Either this or https://doc.rust-lang.org/reference/items/enumerations.html#pointer-casting
+                writer.write_all(&[0x0])?;
+                scalar.write(writer, format)?;
+            }
+            Expression::Selector(selector) => {
+                writer.write_all(&[0x1])?;
+                writer.write_all(&(selector.0 as u32).to_be_bytes())?;
+                writer.write(&[(selector.1 as u8)])?;
+            }
+            Expression::Fixed(query) => {
+                writer.write_all(&[0x2])?;
+                writer.write_all(&(query.index as u32).to_be_bytes())?;
+                writer.write_all(&(query.column_index as u32).to_be_bytes())?;
+                writer.write_all(&(query.rotation.0 as i32).to_be_bytes())?;
+            }
+            Expression::Advice(query) => {
+                writer.write_all(&[0x3])?;
+                writer.write_all(&(query.index as u32).to_be_bytes())?;
+                writer.write_all(&(query.column_index as u32).to_be_bytes())?;
+                writer.write_all(&(query.rotation.0 as i32).to_be_bytes())?;
+                writer.write_all(&(query.phase.0 as u8).to_be_bytes())?;
+            }
+            Expression::Instance(query) => {
+                writer.write(&[0x4])?;
+                writer.write_all(&(query.index as u32).to_be_bytes())?;
+                writer.write_all(&(query.column_index as u32).to_be_bytes())?;
+                writer.write_all(&(query.rotation.0 as i32).to_be_bytes())?;
+            }
+            Expression::Challenge(value) => {
+                writer.write_all(&[0x5])?;
+                writer.write_all(&(value.index as u32).to_be_bytes())?;
+                writer.write_all(&(value.phase.0 as u8).to_be_bytes())?;
+            }
+            Expression::Negated(a) => {
+                writer.write_all(&[0x6])?;
+                a.write(writer, format)?;
+            }
+            Expression::Sum(a, b) => {
+                writer.write_all(&[0x7])?;
+                a.write(writer, format)?;
+                b.write(writer, format)?;
+            }
+            Expression::Product(a, b) => {
+                writer.write_all(&[0x8])?;
+                a.write(writer, format)?;
+                b.write(writer, format)?;
+            }
+            Expression::Scaled(a, f) => {
+                writer.write_all(&[0x9])?;
+                a.write(writer, format)?;
+                f.write(writer, format)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn read<R: io::Read>(reader: &mut R, format: SerdeFormat) -> io::Result<Self> {
+        let mut typ = [0u8];
+        reader.read_exact(&mut typ)?;
+        let expression = match typ[0] {
+            0x00 => {
+                let scalar = F::read(reader, format).unwrap();
+                Ok(Expression::Constant(scalar))
+            }
+            0x01 => {
+                let mut selector_index = [0u8; 4];
+                let mut active = [0u8];
+                reader.read_exact(&mut selector_index)?;
+                reader.read_exact(&mut active)?;
+                let selector_index = u32::from_be_bytes(selector_index) as usize;
+                let active = u8::from_be_bytes(active) != 0;
+                Ok(Expression::Selector(Selector(selector_index, active)))
+            }
+            0x02 => {
+                let mut index = [0u8; 4];
+                let mut column_index = [0u8; 4];
+                let mut rotation = [0u8; 4];
+                reader.read_exact(&mut index)?;
+                reader.read_exact(&mut column_index)?;
+                reader.read_exact(&mut rotation)?;
+                let index = u32::from_be_bytes(index) as usize;
+                let column_index = u32::from_be_bytes(column_index) as usize;
+                let rotation = Rotation(i32::from_be_bytes(rotation) as i32);
+                Ok(Expression::Fixed(FixedQuery {
+                    index,
+                    column_index,
+                    rotation,
+                }))
+            }
+            0x03 => {
+                let mut index = [0u8; 4];
+                let mut column_index = [0u8; 4];
+                let mut rotation = [0u8; 4];
+                let mut phase = [0u8];
+                reader.read_exact(&mut index)?;
+                reader.read_exact(&mut column_index)?;
+                reader.read_exact(&mut rotation)?;
+                reader.read_exact(&mut phase)?;
+                let index = u32::from_be_bytes(index) as usize;
+                let column_index = u32::from_be_bytes(column_index) as usize;
+                let rotation = Rotation(i32::from_be_bytes(rotation) as i32);
+                let phase = sealed::Phase(u8::from_be_bytes(phase) as u8);
+                Ok(Expression::Advice(AdviceQuery {
+                    index,
+                    column_index,
+                    rotation,
+                    phase,
+                }))
+            }
+            0x04 => {
+                let mut index = [0u8; 4];
+                let mut column_index = [0u8; 4];
+                let mut rotation = [0u8; 4];
+                reader.read_exact(&mut index)?;
+                reader.read_exact(&mut column_index)?;
+                reader.read_exact(&mut rotation)?;
+                let index = u32::from_be_bytes(index) as usize;
+                let column_index = u32::from_be_bytes(column_index) as usize;
+                let rotation = Rotation(i32::from_be_bytes(rotation) as i32);
+                Ok(Expression::Instance(InstanceQuery {
+                    index,
+                    column_index,
+                    rotation,
+                }))
+            }
+            0x05 => {
+                let mut index = [0u8; 4];
+                let mut phase = [0u8];
+                reader.read_exact(&mut index)?;
+                reader.read_exact(&mut phase)?;
+                let index = u32::from_be_bytes(index) as usize;
+                let phase = sealed::Phase(u8::from_be_bytes(phase) as u8);
+                Ok(Expression::Challenge(Challenge { index, phase }))
+            }
+            0x06 => {
+                let expression = Self::read(reader, format)?;
+                Ok(Expression::Negated(Box::new(expression)))
+            }
+            0x07 => {
+                let a = Self::read(reader, format)?;
+                let b = Self::read(reader, format)?;
+                Ok(Expression::Sum(Box::new(a), Box::new(b)))
+            }
+            0x08 => {
+                let a = Self::read(reader, format)?;
+                let b = Self::read(reader, format)?;
+                Ok(Expression::Product(Box::new(a), Box::new(b)))
+            }
+            0x09 => {
+                let a = Self::read(reader, format)?;
+                let f = F::read(reader, format)?;
+                Ok(Expression::Scaled(Box::new(a), f))
+            }
+            _ => Err("Unkown Expression type"),
+        };
+        expression
+    }
 }
 
 impl<F: Field> Expression<F> {
@@ -1727,6 +1893,73 @@ impl<F: Field> ConstraintSystem<F> {
         });
     }
 
+    /**
+     * ckb-bf-zkvm:
+     * Recreate side-effect of compress_selectors on the constraint system
+     */
+    pub fn ckb_recreate_side_effect(mut self, selector_assignments: Vec<SelectorAssignment<F>>) -> Self {
+        let mut selector_map = vec![None; selector_assignments.len()];
+        let mut selector_replacements = vec![None; selector_assignments.len()];
+        let mut new_columns = vec![];
+        for assignment in selector_assignments {
+            selector_replacements[assignment.selector] = Some(assignment.expression);
+            let combination_index = assignment.combination_index;
+            if combination_index >= new_columns.len() {
+                let column = self.fixed_column();
+                self.query_fixed_index(column, Rotation::cur());
+                new_columns.push(column);
+            }
+            selector_map[assignment.selector] = Some(new_columns[assignment.combination_index]);
+        }
+
+        self.selector_map = selector_map.clone().into_iter().map(|a| a.unwrap()).collect::<Vec<_>>();
+        let selector_replacements = selector_replacements.into_iter().map(|a| a.unwrap()).collect::<Vec<_>>();
+
+        fn replace_selectors<F: Field>(
+            expr: &mut Expression<F>,
+            selector_replacements: &[Expression<F>],
+            must_be_nonsimple: bool,
+        ) {
+            *expr = expr.evaluate(
+                &|constant| Expression::Constant(constant),
+                &|selector| {
+                    if must_be_nonsimple {
+                        // Simple selectors are prohibited from appearing in
+                        // expressions in the lookup argument by
+                        // `ConstraintSystem`.
+                        assert!(!selector.is_simple());
+                    }
+
+                    selector_replacements[selector.0].clone()
+                },
+                &|query| Expression::Fixed(query),
+                &|query| Expression::Advice(query),
+                &|query| Expression::Instance(query),
+                &|challenge| Expression::Challenge(challenge),
+                &|a| -a,
+                &|a, b| a + b,
+                &|a, b| a * b,
+                &|a, f| a * f,
+            );
+        }
+
+        // Substitute selectors for the real fixed columns in all gates
+        for expr in self.gates.iter_mut().flat_map(|gate| gate.polys.iter_mut()) {
+            replace_selectors(expr, &selector_replacements, false);
+        }
+
+        // Substitute non-simple selectors for the real fixed columns in all
+        // lookup expressions
+        for expr in self
+            .lookups
+            .iter_mut()
+            .flat_map(|lookup| lookup.input_expressions.iter_mut().chain(lookup.table_expressions.iter_mut()))
+        {
+            replace_selectors(expr, &selector_replacements, true);
+        }
+        self
+    }
+
     /// This will compress selectors together depending on their provided
     /// assignments. This `ConstraintSystem` will then be modified to add new
     /// fixed columns (representing the actual selectors) and will return the
@@ -1734,7 +1967,7 @@ impl<F: Field> ConstraintSystem<F> {
     /// find which fixed column corresponds with a given `Selector`.
     ///
     /// Do not call this twice. Yes, this should be a builder pattern instead.
-    pub(crate) fn compress_selectors(mut self, selectors: Vec<Vec<bool>>) -> (Self, Vec<Vec<F>>) {
+    pub(crate) fn compress_selectors(mut self, selectors: Vec<Vec<bool>>) -> (Self, Vec<Vec<F>>, Vec<SelectorAssignment<F>>) {
         // The number of provided selector assignments must be the number we
         // counted for this constraint system.
         assert_eq!(selectors.len(), self.num_selectors);
@@ -1782,7 +2015,7 @@ impl<F: Field> ConstraintSystem<F> {
 
         let mut selector_map = vec![None; selector_assignment.len()];
         let mut selector_replacements = vec![None; selector_assignment.len()];
-        for assignment in selector_assignment {
+        for assignment in selector_assignment.clone() {
             selector_replacements[assignment.selector] = Some(assignment.expression);
             selector_map[assignment.selector] = Some(new_columns[assignment.combination_index]);
         }
@@ -1840,7 +2073,7 @@ impl<F: Field> ConstraintSystem<F> {
             replace_selectors(expr, &selector_replacements, true);
         }
 
-        (self, polys)
+        (self, polys, selector_assignment)
     }
 
     /// Allocate a new (simple) selector. Simple selectors cannot be added to

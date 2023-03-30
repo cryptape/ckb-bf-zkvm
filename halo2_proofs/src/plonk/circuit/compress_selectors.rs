@@ -1,5 +1,7 @@
 use super::Expression;
 use crate::{format, vec, Vec};
+use crate::helpers::{SerdeFormat, SerdePrimeField};
+use crate::io;
 use ff::Field;
 
 /// This describes a selector and where it is activated.
@@ -31,6 +33,38 @@ pub struct SelectorAssignment<F> {
     /// The expression we wish to substitute with
     pub expression: Expression<F>,
 }
+
+impl<F: SerdePrimeField> SelectorAssignment<F> {
+    pub fn write<W: io::Write>(&self, writer: &mut W, format: SerdeFormat) -> io::Result<()> {
+        writer.write_all(&(self.selector as u32).to_be_bytes())?;
+        writer.write_all(&(self.combination_index as u32).to_be_bytes())?;
+        self.expression.write(writer, format)?;
+        Ok(())
+    }
+
+    pub fn read<R: io::Read>(reader: &mut R) -> io::Result<Self> {
+        let mut selector = [0u8; 4];
+        reader.read_exact(&mut selector)?;
+        let selector = u32::from_be_bytes(selector) as usize;
+        let mut combination_index = [0u8; 4];
+        reader.read_exact(&mut combination_index)?;
+        let combination_index = u32::from_be_bytes(combination_index) as usize;
+        let expression = Expression::read(reader, SerdeFormat::RawBytes).unwrap();
+        Ok(Self {
+            selector,
+            combination_index,
+            expression,
+        })
+    }
+
+    pub fn read_vec<R: io::Read>(reader: &mut R) -> io::Result<Vec<Self>> {
+        let mut length = [0u8; 4];
+        reader.read_exact(&mut length)?;
+        let length = u32::from_be_bytes(length) as usize;
+        (0..length).map(|_| Self::read(reader)).collect()
+    }
+}
+
 
 /// This function takes a vector that defines each selector as well as a closure
 /// used to allocate new fixed columns, and returns the assignment of each
