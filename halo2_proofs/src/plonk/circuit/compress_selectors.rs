@@ -56,13 +56,6 @@ impl<F: SerdePrimeField> SelectorAssignment<F> {
             expression,
         })
     }
-
-    pub fn read_vec<R: io::Read>(reader: &mut R) -> io::Result<Vec<Self>> {
-        let mut length = [0u8; 4];
-        reader.read_exact(&mut length)?;
-        let length = u32::from_be_bytes(length) as usize;
-        (0..length).map(|_| Self::read(reader)).collect()
-    }
 }
 
 
