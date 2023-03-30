@@ -62,8 +62,9 @@ pub fn program_entry() -> i8 {
             return -1;
         }
     };
-    let mut code_buffer = [0u8; 32 * 1024];
-    let code_len = match load_witness(&mut code_buffer, 0, 3, Source::Input) {
+
+    let mut code_buffer = [0u8; 2048];
+    let raw_code_len = match load_witness(&mut code_buffer, 0, 3, Source::Input) {
         Ok(l) => {
             debug(format!("Loading program length: {:?}", l));
             l
@@ -73,14 +74,15 @@ pub fn program_entry() -> i8 {
             return -1;
         }
     };
-    let mut code = [Fr::zero(); 32 * 1024];
+    assert!(raw_code_len % 2 == 0); // san-check
+    let code_len = raw_code_len / 2;
+    let mut code = [Fr::zero(); 1024];
     code[0] = Fr::from(code_len as u64);
-    for idx in 0..code_len {
-        let op = code_buffer[idx];
-        code[idx + 1] = Fr::from_raw([op as u64, 0, 0, 0]);
-    }
+    (0..code_len).for_each(|idx| {
+        code[idx + 1] = Fr::from(u16::from_le_bytes([code_buffer[idx * 2], code_buffer[idx * 2 + 1]]) as u64)
+    });
 
-    let mut input_buffer = [0u8; 32 * 1024];
+    let mut input_buffer = [0u8; 1024];
     let input_len = match load_witness(&mut input_buffer, 0, 4, Source::Input) {
         Ok(l) => {
             debug(format!("Loading input length: {:?}", l));
@@ -91,12 +93,11 @@ pub fn program_entry() -> i8 {
             return -1;
         }
     };
-    let mut input = [Fr::zero(); 32 * 1024];
+    let mut input = [Fr::zero(); 1024];
     input[0] = Fr::from(input_len as u64);
-    for idx in 0..input_len {
-        let op = input_buffer[idx];
-        input[idx + 1] = Fr::from_raw([op as u64, 0, 0, 0]);
-    }
+    (0..input_len).for_each(|idx| {
+        input[idx+1] = Fr::from(input_buffer[idx] as u64);
+    });
 
     let verifier_params = {
         let r: io::Result<ParamsVerifierKZG<Bn256>> = read_verifier_params(&mut &params_buffer[..params_len]);
