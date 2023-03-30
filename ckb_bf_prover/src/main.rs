@@ -17,6 +17,7 @@ use log::info;
 use rand::SeedableRng;
 use rand_xorshift::XorShiftRng;
 use std::io::Read;
+use std::fs::{read, write};
 
 fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, raw_code: Vec<u8>, raw_input: Vec<u8>) {
     info!("Prepare public_inputs");
@@ -31,7 +32,20 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, raw_code: Vec<u8>, r
 
     let s = Fr::from_u128(GOD_PRIVATE_KEY);
     info!("Start trusted setup (k={}), using unsafe GOD_PRIVATE_KEY (42) ...", k);
-    let general_params = ParamsKZG::<Bn256>::unsafe_setup_with_s(k, s);
+    let general_params = {
+        let r = read(&format!("res/params_{}.bin", k));
+        if r.is_err() {
+            info!("No local params, generate new one.");
+            let params = ParamsKZG::<Bn256>::unsafe_setup_with_s(k, s);
+            let mut buf = vec![];
+            params.write(&mut buf).expect("Write params to buf failed.");
+            write(&format!("res/params_{}.bin", k), buf).expect("Write params to file failed");
+            params
+        } else {
+            info!("Use local params.");
+            ParamsKZG::<Bn256>::read(&mut r.unwrap().as_slice()).expect("Read params from file failed.")
+        }
+    };
     let mut verifier_params: ParamsVerifierKZG<Bn256> = general_params.verifier_params().clone();
     let vk = keygen_vk(&general_params, &circuit).expect("keygen_vk");
     let pk = keygen_pk(&general_params, vk, &circuit).expect("keygen_pk");
