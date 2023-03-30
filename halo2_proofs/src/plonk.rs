@@ -149,7 +149,9 @@ where
 
 impl<C: CurveAffine> VerifyingKey<C> {
     fn bytes_length(&self) -> usize {
-        // TODO cal size
+        // Xiaowen: TODO bytes_length cannot work due to CurveAffine doesn't have a serialization
+        // trait and hence size of selector_assignments cannot be calcualted.
+        panic!("Should not be called");
         8 + (self.fixed_commitments.len() * C::default().to_bytes().as_ref().len())
             + self.permutation.bytes_length()
     }
