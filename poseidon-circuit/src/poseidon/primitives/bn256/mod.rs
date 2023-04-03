@@ -2,6 +2,7 @@ pub(crate) use halo2_proofs::halo2curves::bn256::Fr as Fp;
 
 use super::p128pow5t3::P128Pow5T3Constants;
 use super::Mds;
+use crate::Vec;
 
 pub(crate) mod fp;
 
@@ -23,7 +24,7 @@ impl P128Pow5T3Constants for Fp {
 
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
+    use core::marker::PhantomData;
 
     use crate::poseidon::primitives::{permute, P128Pow5T3, P128Pow5T3Compact, Spec};
 

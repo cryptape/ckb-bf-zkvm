@@ -1,6 +1,6 @@
 //! The Grain LFSR in self-shrinking mode, as used by Poseidon.
 
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use bitvec::prelude::*;
 use halo2_proofs::arithmetic::FieldExt;

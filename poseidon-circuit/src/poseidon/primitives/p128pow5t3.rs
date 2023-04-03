@@ -1,5 +1,6 @@
 use halo2_proofs::arithmetic::FieldExt;
-use std::marker::PhantomData;
+use core::marker::PhantomData;
+use crate::Vec;
 
 use super::{Mds, Spec};
 
@@ -47,7 +48,7 @@ impl<Fp: P128Pow5T3Constants> Spec<Fp, 3, 2> for P128Pow5T3<Fp> {
 
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
+    use core::marker::PhantomData;
 
     use halo2_proofs::arithmetic::FieldExt;
     use halo2_proofs::halo2curves::group::ff::PrimeField;

@@ -1,9 +1,10 @@
 //! The Poseidon algebraic hash function.
 
-use std::convert::TryInto;
-use std::fmt;
-use std::iter;
-use std::marker::PhantomData;
+use core::convert::TryInto;
+use core::fmt;
+use core::iter;
+use core::marker::PhantomData;
+use crate::{Vec, format, String, ToString};
 
 use halo2_proofs::arithmetic::FieldExt;
 

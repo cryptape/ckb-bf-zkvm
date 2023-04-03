@@ -2,6 +2,7 @@ use super::state::Cell;
 use super::util::select;
 use halo2_proofs::halo2curves::bn256::Fr as F;
 use halo2_proofs::plonk::{ConstraintSystem, Constraints, Expression};
+use crate::Vec;
 
 #[derive(Clone, Debug)]
 pub struct LoopChip {}

@@ -7,6 +7,7 @@ use halo2_proofs::{
     circuit::{Chip, Layouter},
     plonk::{ConstraintSystem, Error},
 };
+use crate::{Vec, format};
 
 const WIDTH: usize = 3;
 const RATE: usize = 2;

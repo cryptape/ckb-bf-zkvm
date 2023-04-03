@@ -6,6 +6,8 @@ use halo2_proofs::circuit::{Region, Value};
 use halo2_proofs::halo2curves::bn256::Fr as F;
 use halo2_proofs::plonk::{Advice, Column, ConstraintSystem, Constraints, Error, Expression};
 
+use crate::vec;
+
 #[derive(Clone, Debug)]
 pub struct TransitionRoundChip {
     column: Column<Advice>,

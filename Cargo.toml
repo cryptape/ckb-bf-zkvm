@@ -9,6 +9,7 @@ members = [
     "halo2_proofs",
     "halo2curves",
     "poseidon",
+    "poseidon-circuit",
 ]
 
 [profile.release.package.ckb_bf_verifier]

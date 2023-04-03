@@ -1,4 +1,5 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
+use crate::Vec;
 
 use halo2_proofs::arithmetic::FieldExt;
 

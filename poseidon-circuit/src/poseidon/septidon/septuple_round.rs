@@ -6,6 +6,8 @@ use halo2_proofs::circuit::{Region, Value};
 use halo2_proofs::halo2curves::bn256::Fr as F;
 use halo2_proofs::plonk::{ConstraintSystem, Constraints, Error, Expression, VirtualCells};
 
+use crate::{Vec, vec};
+
 #[derive(Clone, Debug)]
 pub struct SeptupleRoundChip {
     first_sbox: SBox,

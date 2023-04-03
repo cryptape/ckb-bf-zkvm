@@ -5,6 +5,7 @@ use crate::poseidon::primitives::{
 };
 use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::{arithmetic::FieldExt, circuit::AssignedCell};
+use crate::{Vec, vec, format};
 
 mod chip_long {
     use super::{SpongeChip, SpongeConfig};
@@ -314,7 +315,7 @@ impl<Fp: FieldExt> PoseidonHashTable<Fp> {
         step: usize,
     ) {
         let mut new_inps: Vec<_> = src.into_iter().copied().collect();
-        let mut ctrl_series: Vec<_> = std::iter::successors(Some(ctrl_start), |n| {
+        let mut ctrl_series: Vec<_> = core::iter::successors(Some(ctrl_start), |n| {
             if *n > (step as u64) {
                 Some(n - step as u64)
             } else {
@@ -460,20 +461,20 @@ impl<
             .inputs
             .iter()
             .map(Some)
-            .chain(std::iter::repeat(None))
+            .chain(core::iter::repeat(None))
             .take(self.calcs);
         let controls_i = data
             .controls
             .iter()
             .map(Some)
-            .chain(std::iter::repeat(None))
+            .chain(core::iter::repeat(None))
             .take(self.calcs);
 
         let checks_i = data
             .checks
             .iter()
             .map(|i| i.as_ref())
-            .chain(std::iter::repeat(None))
+            .chain(core::iter::repeat(None))
             .take(self.calcs);
 
         let mut is_new_sponge = true;
@@ -674,7 +675,7 @@ impl<Fp: FieldExt, const STEP: usize, PC: PermuteChip<Fp>> Chip<Fp>
 
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
+    use core::marker::PhantomData;
 
     use crate::poseidon::{Pow5Chip, SeptidonChip};
 

@@ -1,8 +1,8 @@
 //! The Poseidon algebraic hash function.
 
-use std::convert::TryInto;
-use std::fmt;
-use std::marker::PhantomData;
+use core::convert::TryInto;
+use core::fmt;
+use core::marker::PhantomData;
 
 use halo2_proofs::{
     arithmetic::{Field, FieldExt},
@@ -18,7 +18,8 @@ pub use septidon::SeptidonChip;
 
 pub mod primitives;
 use primitives::{Absorbing, ConstantLength, Domain, Spec, SpongeMode, Squeezing, State};
-use std::fmt::Debug as DebugT;
+use core::fmt::Debug as DebugT;
+use crate::{Vec, format};
 
 /// A word from the padded input to a Poseidon sponge.
 #[derive(Clone, Debug)]

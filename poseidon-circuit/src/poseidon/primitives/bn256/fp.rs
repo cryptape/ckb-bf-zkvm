@@ -10,6 +10,7 @@
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::halo2curves::{bn256::Fr as Fp, group::ff::PrimeField};
 use lazy_static::lazy_static;
+use crate::{Vec, vec};
 
 lazy_static! {
     pub static ref ROUND_CONSTANTS: [[Fp; 3]; 65] = {

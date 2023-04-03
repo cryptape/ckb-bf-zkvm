@@ -11,6 +11,8 @@ use super::state::Cell;
 use super::transition_round::TransitionRoundChip;
 use super::util::map_array;
 
+use crate::Vec;
+
 /// The configuration of the permutation chip.
 ///
 /// ```

@@ -1,5 +1,6 @@
 //! mpt demo circuits
 //
+#![cfg_attr(not(test), no_std)]
 
 #![allow(dead_code)]
 #![allow(unused_macros)]
@@ -14,3 +15,6 @@ pub use hash::Hashable;
 
 /// a default step can be compatible with codehash circuit
 pub const DEFAULT_STEP: usize = 32;
+
+extern crate alloc;
+use alloc::{format, string::String, string::ToString, vec, vec::Vec};

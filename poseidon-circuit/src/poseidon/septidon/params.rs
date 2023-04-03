@@ -1,5 +1,6 @@
 use super::super::primitives::{Mds as MdsT, P128Pow5T3Compact, Spec};
 use lazy_static::lazy_static;
+use crate::Vec;
 
 /// This implementation can be limited to gate degree 5. However, this mode will not work with
 /// blinding or inactive rows. Enable only with a prover that supports assignments to all n rows.

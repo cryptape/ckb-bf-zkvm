@@ -56,7 +56,8 @@ pub mod pow_5 {
 pub mod matmul {
     use super::super::params::{Mds, F};
     use halo2_proofs::plonk::Expression;
-    use std::convert::TryInto;
+    use core::convert::TryInto;
+    use crate::Vec;
 
     /// Multiply a vector of expressions by a constant matrix.
     pub fn expr(matrix: &Mds, vector: [Expression<F>; 3]) -> [Expression<F>; 3] {

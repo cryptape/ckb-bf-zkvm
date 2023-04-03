@@ -1,6 +1,7 @@
 use halo2_proofs::arithmetic::FieldExt;
 
 use super::{grain::Grain, Mds};
+use crate::Vec;
 
 pub(super) fn generate_mds<F: FieldExt, const T: usize>(
     grain: &mut Grain<F>,

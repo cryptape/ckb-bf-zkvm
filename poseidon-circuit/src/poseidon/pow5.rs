@@ -1,5 +1,7 @@
-use std::convert::TryInto;
-use std::iter;
+use core::convert::TryInto;
+use core::iter;
+use crate::format;
+use crate::Vec;
 
 use halo2_proofs::{
     arithmetic::FieldExt,
@@ -16,7 +18,7 @@ use super::{
 };
 
 /// Trait for a variable in the circuit.
-pub trait Var<F: FieldExt>: Clone + std::fmt::Debug + From<AssignedCell<F, F>> {
+pub trait Var<F: FieldExt>: Clone + core::fmt::Debug + From<AssignedCell<F, F>> {
     /// The cell at which this variable was allocated.
     fn cell(&self) -> Cell;
 
@@ -165,7 +167,7 @@ impl<F: FieldExt, const WIDTH: usize, const RATE: usize> Pow5Chip<F, WIDTH, RATE
                 mid(idx, meta) + rc_b - next(idx, meta)
             };
 
-            std::iter::empty()
+            core::iter::empty()
                 // state[0] round a
                 .chain(Some(pow_5(cur_0 + rc_a0) - mid_0.clone()))
                 // state[0] round b
@@ -718,8 +720,8 @@ mod tests {
         primitives::{self as poseidon, ConstantLength, P128Pow5T3, Spec},
         Hash,
     };
-    use std::convert::TryInto;
-    use std::marker::PhantomData;
+    use core::convert::TryInto;
+    use core::marker::PhantomData;
 
     type OrchardNullifier = P128Pow5T3<Fp>;
 
