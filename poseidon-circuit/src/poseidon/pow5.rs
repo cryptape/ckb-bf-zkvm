@@ -268,6 +268,8 @@ impl<F: Hashable> PermuteChip<F> for Pow5Chip<F, 3, 2> {
         let partial_sbox = meta.advice_column();
         let constants = [0; 6].map(|_| meta.fixed_column());
 
+        // Missing constant, see halo2_gadget/src/posedion/pow5.rs
+        meta.enable_constant(constants[3]);
         Pow5Chip::configure::<F::SpecType>(
             meta,
             state,
