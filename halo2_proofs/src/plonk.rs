@@ -181,11 +181,12 @@ impl<C: CurveAffine> VerifyingKey<C> {
             .hash_length(64)
             .personal(b"Halo2-Verify-Key")
             .to_state();
+        // let pined = vk.pinned();
 
-        let s = format!("{:?}", vk.pinned());
+        // let s = format!("{:?}", vk.pinned());
 
-        hasher.update(&(s.len() as u64).to_le_bytes());
-        hasher.update(s.as_bytes());
+        // hasher.update(&(s.len() as u64).to_le_bytes());
+        // hasher.update(s.as_bytes());
 
         // Hash in final Blake2bState
         vk.transcript_repr = C::Scalar::from_bytes_wide(hasher.finalize().as_array());
