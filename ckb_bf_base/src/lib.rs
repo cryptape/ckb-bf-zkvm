@@ -12,6 +12,7 @@ pub mod processor_table;
 pub mod range_table;
 pub mod program_table;
 pub mod utils;
+pub mod poseidon_hash;
 
 pub const GOD_PRIVATE_KEY: u128 = 42;
 pub const SHRINK_K: u32 = 1;
