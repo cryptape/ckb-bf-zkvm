@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ckb-std = { git = "https://github.com/nervosnetwork/ckb-std.git", rev = "60a7007" }
+ckb-std = { git = "https://github.com/nervosnetwork/ckb-std.git", rev = "1b3fc3f", default-features = false, features = ["allocator", "ckb-types"] }
 halo2 = { path = "../halo2" }
 halo2_gadgets = { path = "../halo2_gadgets" }
 halo2_proofs = { path = "../halo2_proofs" }
