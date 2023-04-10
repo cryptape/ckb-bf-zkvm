@@ -57,7 +57,7 @@ pub struct VerifyingKey<C: CurveAffine> {
     cs_degree: usize,
     /// The representative of this `VerifyingKey` in transcripts.
     transcript_repr: C::Scalar,
-    selectors: Vec<Vec<bool>>,
+    selector_assignments: Vec<SelectorAssignment<C::Scalar>>,
 }
 
 impl<C: SerdeCurveAffine> VerifyingKey<C>
@@ -80,13 +80,9 @@ where
             commitment.write(writer, format)?;
         }
         self.permutation.write(writer, format)?;
-
-        // write self.selectors
-        for selector in &self.selectors {
-            // since `selector` is filled with `bool`, we pack them 8 at a time into bytes and then write
-            for bits in selector.chunks(8) {
-                writer.write_all(&[crate::helpers::pack(bits)])?;
-            }
+        writer.write_all(&(self.selector_assignments.len() as u32).to_be_bytes())?;
+        for assignment in &self.selector_assignments {
+            assignment.write(writer, format)?;
         }
         Ok(())
     }
@@ -120,25 +116,18 @@ where
         let permutation = permutation::VerifyingKey::read(reader, &cs.permutation, format)?;
 
         // read selectors
-        let selectors: Vec<Vec<bool>> = vec![vec![false; 1 << k]; cs.num_selectors]
-            .into_iter()
-            .map(|mut selector| {
-                let mut selector_bytes = vec![0u8; (selector.len() + 7) / 8];
-                reader.read_exact(&mut selector_bytes)?;
-                for (bits, byte) in selector.chunks_mut(8).into_iter().zip(selector_bytes) {
-                    crate::helpers::unpack(byte, bits);
-                }
-                Ok(selector)
-            })
-            .collect::<io::Result<_>>()?;
-        let (cs, _) = cs.compress_selectors(selectors.clone());
+        let mut length = [0u8; 4];
+        reader.read_exact(&mut length)?;
+        let length = u32::from_be_bytes(length) as usize;
+        let selector_assignments = (0..length).map(|_| SelectorAssignment::read(reader).unwrap()).collect::<Vec<_>>();
+        let cs = cs.ckb_recreate_side_effect(selector_assignments.clone());
 
         Ok(Self::from_parts(
             domain,
             fixed_commitments,
             permutation,
             cs,
-            selectors,
+            selector_assignments,
         ))
     }
 
@@ -160,14 +149,11 @@ where
 
 impl<C: CurveAffine> VerifyingKey<C> {
     fn bytes_length(&self) -> usize {
+        // Xiaowen: TODO bytes_length cannot work due to CurveAffine doesn't have a serialization
+        // trait and hence size of selector_assignments cannot be calcualted.
+        panic!("Should not be called");
         8 + (self.fixed_commitments.len() * C::default().to_bytes().as_ref().len())
             + self.permutation.bytes_length()
-            + self.selectors.len()
-                * (self
-                    .selectors
-                    .get(0)
-                    .map(|selector| selector.len() / 8 + 1)
-                    .unwrap_or(0))
     }
 
     fn from_parts(
@@ -175,7 +161,7 @@ impl<C: CurveAffine> VerifyingKey<C> {
         fixed_commitments: Vec<C>,
         permutation: permutation::VerifyingKey<C>,
         cs: ConstraintSystem<C::Scalar>,
-        selectors: Vec<Vec<bool>>,
+        selector_assignments: Vec<SelectorAssignment<C::Scalar>>,
     ) -> Self {
         // Compute cached values.
         let cs_degree = cs.degree();
@@ -188,7 +174,7 @@ impl<C: CurveAffine> VerifyingKey<C> {
             cs_degree,
             // Temporary, this is not pinned.
             transcript_repr: C::Scalar::zero(),
-            selectors,
+            selector_assignments,
         };
 
         let mut hasher = Blake2bParams::new()

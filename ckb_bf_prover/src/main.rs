@@ -7,7 +7,7 @@ use ckb_bf_vm::code;
 use ckb_bf_vm::interpreter::Interpreter;
 use halo2_proofs::halo2curves::bn256::{Bn256, Fr, G1Affine};
 use halo2_proofs::halo2curves::FieldExt;
-use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof};
+use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof, VerifyingKey};
 use halo2_proofs::poly::commitment::{Params, ParamsProver};
 use halo2_proofs::poly::kzg::commitment::{KZGCommitmentScheme, ParamsKZG, ParamsVerifierKZG};
 use halo2_proofs::poly::kzg::multiopen::{ProverSHPLONK, VerifierSHPLONK};
@@ -17,11 +17,35 @@ use log::info;
 use rand::SeedableRng;
 use rand_xorshift::XorShiftRng;
 use std::io::Read;
+use std::fs::{read, write};
 
-fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, public_inputs: &[&[Fr]]) {
+fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, raw_code: Vec<u8>, raw_input: Vec<u8>) {
+    info!("Prepare public_inputs");
+    // Code
+    let mut code = code::compile(raw_code.clone());
+    code.insert(0, Fr::from(code.len() as u64));
+    // Input
+    let mut input = vec![];
+    input.push(Fr::from(raw_input.len() as u64));
+    raw_input.iter().for_each(|x| input.push(Fr::from(*x as u64)));
+    let public_inputs = [&code[..], &input[..]];
+
     let s = Fr::from_u128(GOD_PRIVATE_KEY);
     info!("Start trusted setup (k={}), using unsafe GOD_PRIVATE_KEY (42) ...", k);
-    let general_params = ParamsKZG::<Bn256>::unsafe_setup_with_s(k, s);
+    let general_params = {
+        let r = read(&format!("res/params_{}.bin", k));
+        if r.is_err() {
+            info!("No local params, generate new one.");
+            let params = ParamsKZG::<Bn256>::unsafe_setup_with_s(k, s);
+            let mut buf = vec![];
+            params.write(&mut buf).expect("Write params to buf failed.");
+            write(&format!("res/params_{}.bin", k), buf).expect("Write params to file failed");
+            params
+        } else {
+            info!("Use local params.");
+            ParamsKZG::<Bn256>::read(&mut r.unwrap().as_slice()).expect("Read params from file failed.")
+        }
+    };
     let mut verifier_params: ParamsVerifierKZG<Bn256> = general_params.verifier_params().clone();
     let vk = keygen_vk(&general_params, &circuit).expect("keygen_vk");
     let pk = keygen_pk(&general_params, vk, &circuit).expect("keygen_pk");
@@ -37,7 +61,14 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, public_inputs: &[&[F
         XorShiftRng,
         Blake2bWrite<Vec<u8>, G1Affine, Challenge255<G1Affine>>,
         MyCircuit<Fr, DOMAIN>,
-    >(&general_params, &pk, &[circuit], &[public_inputs], rng, &mut transcript)
+    >(
+        &general_params,
+        &pk,
+        &[circuit],
+        &[&public_inputs],
+        rng,
+        &mut transcript,
+    )
     .expect("create_proof");
     info!("create_proof done");
 
@@ -58,8 +89,15 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, public_inputs: &[&[F
     verifier_params.write(&mut verifier_params_buf).expect("write");
     info!("verifier parameters length : {}", verifier_params_buf.len());
 
+    // check verification and serialization
+    let verifier_params: ParamsVerifierKZG<Bn256> =
+        read_verifier_params(&mut &verifier_params_buf[..verifier_params_buf.len()]).unwrap();
+    let vk = VerifyingKey::<G1Affine>::read::<&[u8], MyCircuit<Fr, DOMAIN>>(
+        &mut &vk_buf[..vk_buf.len()],
+        halo2_proofs::SerdeFormat::RawBytes,
+    ).unwrap();
     let mut verifier_transcript = Blake2bRead::<_, G1Affine, Challenge255<_>>::init(&proof[..]);
-    let strategy = SingleStrategy::new(&general_params);
+    let strategy = SingleStrategy::new(&verifier_params);
     verify_proof::<
         KZGCommitmentScheme<Bn256>,
         VerifierSHPLONK<'_, Bn256>,
@@ -68,25 +106,22 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, public_inputs: &[&[F
         SingleStrategy<'_, Bn256>,
     >(
         &verifier_params,
-        pk.get_vk(),
+        &vk,
         strategy,
-        &[public_inputs],
+        &[&public_inputs],
         &mut verifier_transcript,
     )
     .expect("verify_proof");
 
-    // if proof passes, all ops should be valid and occupy one byte
-    let code: Vec<u8> = public_inputs[0].iter().skip(1).map(|x| Fr::to_bytes(x)[0]).collect();
-    // input are always within 0-255 if proof passes
-    let input: Vec<u8> = public_inputs[1].iter().skip(1).map(|x| Fr::to_bytes(x)[0]).collect();
-
+    let code_u8: Vec<u8> =
+        code::compile_to_u16(raw_code.clone()).into_iter().flat_map(|x| x.to_le_bytes().to_vec()).collect();
     // build ckb tx
     build_ckb_tx(
         &proof[..],
         &verifier_params_buf[..],
         &vk_buf[..],
-        &code[..],
-        &input[..],
+        &code_u8[..],
+        &raw_input[..],
         "target/riscv64imac-unknown-none-elf/release/ckb_bf_verifier",
     );
 
@@ -104,11 +139,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut c: Vec<u8> = Vec::new();
     f.read_to_end(&mut c)?;
     let mut i = Interpreter::new();
-    let mut code = code::compile(c);
-    let mut input: Vec<Fr> = vec![];
+    let code = code::compile(c.clone());
+    let mut input = String::new();
     if args.len() == 3 {
-        input = code::easygen(&args[2]);
-        i.set_input(input.clone());
+        input = args[2].clone();
+        i.set_input(code::easygen(&input));
     }
     i.set_code(code.clone());
     i.run();
@@ -118,12 +153,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         9,
     );
 
-    // prepare public input
-    code.insert(0, Fr::from(code.len() as u64));
-    input.insert(0, Fr::from(input.len() as u64));
-    let instances = [&code.clone()[..], &input.clone()[..]];
-
     let circuit = MyCircuit::<Fr, { DOMAIN }>::new(i.matrix);
-    prove_and_verify(k, circuit, &instances);
+    prove_and_verify(k, circuit, c, input.into_bytes());
     Ok(())
 }

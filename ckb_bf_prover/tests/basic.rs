@@ -59,7 +59,7 @@ fn test_prove_wrapping() {
 //     let mut vm = Interpreter::new();
 //     vm.set_code(program);
 //     // vm.set_input(code::easygen("The quick brown fox jumps over the lazy dog"));
-//     vm.set_input(code::easygen("a"));
+//     vm.set_input(code::easygen("a"));
 //     vm.run();
 
 //     let circuit = MyCircuit::<Fr, { DOMAIN }>::new(vm.matrix);
@@ -73,7 +73,7 @@ fn test_prove_wrapping() {
 //     let program = code::compile(include_bytes!("../../res/pearson.bf").to_vec());
 //     let mut vm = Interpreter::new();
 //     vm.set_code(program);
-//     vm.set_input(code::easygen("a"));
+//     vm.set_input(code::easygen("a"));
 //     vm.run();
 
 //     let circuit = MyCircuit::<Fr, {DOMAIN}>::new(vm.matrix);

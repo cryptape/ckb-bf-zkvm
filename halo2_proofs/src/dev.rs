@@ -663,7 +663,7 @@ impl<F: FieldExt> MockProver<F> {
         };
         ConcreteCircuit::FloorPlanner::synthesize(&mut prover, circuit, config, constants)?;
 
-        let (cs, selector_polys) = prover.cs.compress_selectors(prover.selectors.clone());
+        let (cs, selector_polys, _) = prover.cs.compress_selectors(prover.selectors.clone());
         prover.cs = cs;
         prover.fixed.extend(selector_polys.into_iter().map(|poly| {
             let mut v = vec![CellValue::Unassigned; n];
