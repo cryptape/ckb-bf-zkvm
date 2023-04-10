@@ -12,9 +12,8 @@ hash = { path = "examples/hash.rs"}
 [dependencies]
 halo2_proofs = {path = "../halo2_proofs"}
 poseidon = {path = "../poseidon"}
-lazy_static = "1.4.0"
-thiserror = "1.0"
-bitvec = "1"
+lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
+bitvec = { version = "1", default-features = false }
 
 # [patch."https://github.com/privacy-scaling-explorations/halo2.git"]
 # halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "scroll-dev-1220" }
