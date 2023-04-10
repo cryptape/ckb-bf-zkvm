@@ -18,9 +18,9 @@ use rand::SeedableRng;
 use rand_xorshift::XorShiftRng;
 use std::io::Read;
 
-fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, _public_inputs: &[&[Fr]]) {
+fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, public_inputs: &[&[Fr]]) {
     let s = Fr::from_u128(GOD_PRIVATE_KEY);
-    info!("Start trusted setup, using unsafe GOD_PRIVATE_KEY (42) ...");
+    info!("Start trusted setup (k={}), using unsafe GOD_PRIVATE_KEY (42) ...", k);
     let general_params = ParamsKZG::<Bn256>::unsafe_setup_with_s(k, s);
     let mut verifier_params: ParamsVerifierKZG<Bn256> = general_params.verifier_params().clone();
     let vk = keygen_vk(&general_params, &circuit).expect("keygen_vk");
@@ -37,7 +37,7 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, _public_inputs: &[&[
         XorShiftRng,
         Blake2bWrite<Vec<u8>, G1Affine, Challenge255<G1Affine>>,
         MyCircuit<Fr, DOMAIN>,
-    >(&general_params, &pk, &[circuit], &[&[]], rng, &mut transcript)
+    >(&general_params, &pk, &[circuit], &[public_inputs], rng, &mut transcript)
     .expect("create_proof");
     info!("create_proof done");
 
@@ -66,14 +66,27 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, _public_inputs: &[&[
         Challenge255<G1Affine>,
         Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
         SingleStrategy<'_, Bn256>,
-    >(&verifier_params, pk.get_vk(), strategy, &[&[]], &mut verifier_transcript)
+    >(
+        &verifier_params,
+        pk.get_vk(),
+        strategy,
+        &[public_inputs],
+        &mut verifier_transcript,
+    )
     .expect("verify_proof");
+
+    // if proof passes, all ops should be valid and occupy one byte
+    let code: Vec<u8> = public_inputs[0].iter().skip(1).map(|x| Fr::to_bytes(x)[0]).collect();
+    // input are always within 0-255 if proof passes
+    let input: Vec<u8> = public_inputs[1].iter().skip(1).map(|x| Fr::to_bytes(x)[0]).collect();
 
     // build ckb tx
     build_ckb_tx(
         &proof[..],
         &verifier_params_buf[..],
         &vk_buf[..],
+        &code[..],
+        &input[..],
         "target/riscv64imac-unknown-none-elf/release/ckb_bf_verifier",
     );
 
@@ -91,11 +104,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut c: Vec<u8> = Vec::new();
     f.read_to_end(&mut c)?;
     let mut i = Interpreter::new();
-    i.set_code(code::compile(c));
+    let mut code = code::compile(c);
+    let mut input: Vec<Fr> = vec![];
+    if args.len() == 3 {
+        input = code::easygen(&args[2]);
+        i.set_input(input.clone());
+    }
+    i.set_code(code.clone());
     i.run();
-    let k = i.matrix.instruction_matrix.len().next_power_of_two().trailing_zeros();
+    // the bf lookup table has k=8
+    let k = std::cmp::max(
+        i.matrix.instruction_matrix.len().next_power_of_two().trailing_zeros(),
+        9,
+    );
+
+    // prepare public input
+    code.insert(0, Fr::from(code.len() as u64));
+    input.insert(0, Fr::from(input.len() as u64));
+    let instances = [&code.clone()[..], &input.clone()[..]];
 
     let circuit = MyCircuit::<Fr, { DOMAIN }>::new(i.matrix);
-    prove_and_verify(k, circuit, &[&[]]);
+    prove_and_verify(k, circuit, &instances);
     Ok(())
 }

@@ -5,13 +5,15 @@ use ckb_types::H256;
 use log::info;
 use serde_json::{from_str, to_string_pretty};
 
-pub fn build_ckb_tx(proof: &[u8], params: &[u8], vk: &[u8], binary_name: &str) {
+pub fn build_ckb_tx(proof: &[u8], params: &[u8], vk: &[u8], code: &[u8], input: &[u8], binary_name: &str) {
     let mut tx: ReprMockTransaction =
         from_str(&String::from_utf8_lossy(include_bytes!("../../res/dummy_tx.json"))).expect("json");
 
     tx.tx.witnesses[0] = JsonBytes::from_vec(params.to_vec());
     tx.tx.witnesses[1] = JsonBytes::from_vec(vk.to_vec());
     tx.tx.witnesses[2] = JsonBytes::from_vec(proof.to_vec());
+    tx.tx.witnesses[3] = JsonBytes::from_vec(code.to_vec());
+    tx.tx.witnesses[4] = JsonBytes::from_vec(input.to_vec());
 
     let binary = std::fs::read(binary_name).expect("read");
     let hash = blake2b_256(&binary).to_vec();

@@ -62,6 +62,41 @@ pub fn program_entry() -> i8 {
             return -1;
         }
     };
+    let mut code_buffer = [0u8; 32 * 1024];
+    let code_len = match load_witness(&mut code_buffer, 0, 3, Source::Input) {
+        Ok(l) => {
+            debug(format!("Loading program length: {:?}", l));
+            l
+        }
+        Err(e) => {
+            debug(format!("Loading program error: {:?}", e));
+            return -1;
+        }
+    };
+    let mut code = [Fr::zero(); 32 * 1024];
+    code[0] = Fr::from(code_len as u64);
+    for idx in 0..code_len {
+        let op = code_buffer[idx];
+        code[idx + 1] = Fr::from_raw([op as u64, 0, 0, 0]);
+    }
+
+    let mut input_buffer = [0u8; 32 * 1024];
+    let input_len = match load_witness(&mut input_buffer, 0, 4, Source::Input) {
+        Ok(l) => {
+            debug(format!("Loading input length: {:?}", l));
+            l
+        }
+        Err(e) => {
+            debug(format!("Loading input error: {:?}", e));
+            return -1;
+        }
+    };
+    let mut input = [Fr::zero(); 32 * 1024];
+    input[0] = Fr::from(input_len as u64);
+    for idx in 0..input_len {
+        let op = input_buffer[idx];
+        input[idx + 1] = Fr::from_raw([op as u64, 0, 0, 0]);
+    }
 
     let verifier_params = {
         let r: io::Result<ParamsVerifierKZG<Bn256>> = read_verifier_params(&mut &params_buffer[..params_len]);
@@ -84,6 +119,9 @@ pub fn program_entry() -> i8 {
         r.unwrap()
     };
 
+    // Prepare instances
+    let instances = [&code[0..(code_len + 1)], &input[0..(input_len + 1)]];
+
     let mut verifier_transcript = Blake2bRead::<_, G1Affine, Challenge255<_>>::init(&proof_buffer[..proof_len]);
     let strategy = SingleStrategy::new(&verifier_params);
     let res = verify_proof::<
@@ -92,7 +130,7 @@ pub fn program_entry() -> i8 {
         Challenge255<G1Affine>,
         Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
         SingleStrategy<'_, Bn256>,
-    >(&verifier_params, &vk, strategy, &[&[]], &mut verifier_transcript);
+    >(&verifier_params, &vk, strategy, &[&instances], &mut verifier_transcript);
     if res.is_err() {
         debug(format!("Error on verify_proof: {:?}", res.err()));
         return -2;

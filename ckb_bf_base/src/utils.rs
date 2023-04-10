@@ -61,10 +61,9 @@ impl BFChallenge {
         self.challenges[4..8].try_into().expect("Challenges should have correct length")
     }
 
-    // Not used, see main_config TODOs
-    // pub(crate) fn get_inst_rs_challenges(self: Self) -> Challenge {
-    //     self.challenges[8]
-    // }
+    pub(crate) fn get_inst_rs_challenges(self: Self) -> Challenge {
+        self.challenges[8]
+    }
 
     pub(crate) fn get_output_rs_challenge(self: Self) -> Challenge {
         self.challenges[9]

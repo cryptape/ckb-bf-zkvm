@@ -48,6 +48,7 @@ impl Interpreter {
     }
 
     pub fn set_code(&mut self, code: Vec<Fr>) {
+        self.matrix.program = code.clone();
         self.code = code;
     }
 
