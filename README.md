@@ -12,10 +12,10 @@ A BrainFuck zkVM implementation on CKB, using Halo2.
 
 ## Performance and Highlights
 
-* Proof size: ~1.3K bytes, constant
-* Cycles: ~75M, constant
+* Proof size: ~4K bytes, constant
+* Cycles: ~130M, constant
 * Verifier parameters: 516 bytes, always fixed
-* Verifying key size: ~2.7K bytes, fixed if the circuit is fixed
+* Verifying key size: ~2K bytes, fixed if the circuit is fixed
 
 The verifier parameters can be hard-coded. A new verifying key is needed only for every new circuit.
 
