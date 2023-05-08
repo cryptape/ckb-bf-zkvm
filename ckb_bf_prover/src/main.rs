@@ -1,4 +1,5 @@
 use ckb_bf_base::main_config::MyCircuit;
+use ckb_bf_base::poseidon_hash::hash_program;
 use ckb_bf_base::utils::{read_verifier_params, DOMAIN};
 use ckb_bf_base::{GOD_PRIVATE_KEY, SHRINK_K};
 use ckb_bf_prover::ckb_tx::build_ckb_tx;
@@ -16,20 +17,15 @@ use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255, Transcri
 use log::info;
 use rand::SeedableRng;
 use rand_xorshift::XorShiftRng;
-use std::io::Read;
 use std::fs::{read, write};
+use std::io::Read;
 
-fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, raw_code: Vec<u8>, raw_input: Vec<u8>) {
-    info!("Prepare public_inputs");
-    // Code
-    let mut code = code::compile(raw_code.clone());
-    code.insert(0, Fr::from(code.len() as u64));
-    // Input
-    let mut input = vec![];
-    input.push(Fr::from(raw_input.len() as u64));
-    raw_input.iter().for_each(|x| input.push(Fr::from(*x as u64)));
-    let public_inputs = [&code[..], &input[..]];
-
+fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, hash_message: Fr) {
+    println!("0: {:?}", hash_message);
+    let a = hash_message.to_bytes();
+    println!("a: {:?}", a);
+    let b = Fr::from_bytes(&a).unwrap();
+    println!("b: {:?}", b);
     let s = Fr::from_u128(GOD_PRIVATE_KEY);
     info!("Start trusted setup (k={}), using unsafe GOD_PRIVATE_KEY (42) ...", k);
     let general_params = {
@@ -65,7 +61,7 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, raw_code: Vec<u8>, r
         &general_params,
         &pk,
         &[circuit],
-        &[&public_inputs],
+        &[&[&[hash_message]]],
         rng,
         &mut transcript,
     )
@@ -95,7 +91,8 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, raw_code: Vec<u8>, r
     let vk = VerifyingKey::<G1Affine>::read::<&[u8], MyCircuit<Fr, DOMAIN>>(
         &mut &vk_buf[..vk_buf.len()],
         halo2_proofs::SerdeFormat::RawBytes,
-    ).unwrap();
+    )
+    .unwrap();
     let mut verifier_transcript = Blake2bRead::<_, G1Affine, Challenge255<_>>::init(&proof[..]);
     let strategy = SingleStrategy::new(&verifier_params);
     verify_proof::<
@@ -108,20 +105,17 @@ fn prove_and_verify(k: u32, circuit: MyCircuit<Fr, DOMAIN>, raw_code: Vec<u8>, r
         &verifier_params,
         &vk,
         strategy,
-        &[&public_inputs],
+        &[&[&[hash_message]]],
         &mut verifier_transcript,
     )
     .expect("verify_proof");
 
-    let code_u8: Vec<u8> =
-        code::compile_to_u16(raw_code.clone()).into_iter().flat_map(|x| x.to_le_bytes().to_vec()).collect();
     // build ckb tx
     build_ckb_tx(
         &proof[..],
         &verifier_params_buf[..],
         &vk_buf[..],
-        &code_u8[..],
-        &raw_input[..],
+        &hash_message.to_bytes(),
         "target/riscv64imac-unknown-none-elf/release/ckb_bf_verifier",
     );
 
@@ -140,20 +134,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     f.read_to_end(&mut c)?;
     let mut i = Interpreter::new();
     let code = code::compile(c.clone());
-    let mut input = String::new();
+    let mut input = vec![];
     if args.len() == 3 {
-        input = args[2].clone();
-        i.set_input(code::easygen(&input));
+        input = code::easygen(&args[2]);
+        i.set_input(input.clone());
     }
     i.set_code(code.clone());
     i.run();
-    // the bf lookup table has k=8
+    let message = hash_program(code, input);
+
+    // TODO: not sure how to calculate expected row for hash based on input
     let k = std::cmp::max(
         i.matrix.instruction_matrix.len().next_power_of_two().trailing_zeros(),
-        9,
+        13,
     );
 
     let circuit = MyCircuit::<Fr, { DOMAIN }>::new(i.matrix);
-    prove_and_verify(k, circuit, c, input.into_bytes());
+    prove_and_verify(k, circuit, message);
     Ok(())
 }

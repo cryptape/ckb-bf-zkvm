@@ -9,6 +9,7 @@ use halo2_proofs::helpers::SerdeCurveAffine;
 use halo2_proofs::poly::kzg::commitment::ParamsVerifierKZG;
 use halo2_proofs::{plonk::*, SerdeFormat};
 use halo2curves::io;
+use poseidon_circuit::poseidon::{Pow5Chip, Pow5Config};
 
 use crate::SHRINK_K;
 
@@ -35,6 +36,9 @@ pub const RB: usize = 7;
 pub const DOMAIN: usize = 256;
 
 pub type BFCell = AssignedCell<Fr, Fr>;
+pub type HashChip = Pow5Chip<Fr, 3, 2>;
+pub type HashConfig = Pow5Config<Fr, 3, 2>;
+pub const NIL_HASH_MSG: u64 = 46u64;
 
 #[derive(Clone, Copy, Debug)]
 pub struct BFChallenge {

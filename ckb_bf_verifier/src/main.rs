@@ -12,6 +12,7 @@ use ckb_std::{
     default_alloc,
     syscalls::{debug, load_witness},
 };
+use core::convert::TryInto;
 use halo2_gadgets::halo2curves::bn256::{Bn256, Fr, G1Affine};
 
 ckb_std::entry!(program_entry);
@@ -29,78 +30,23 @@ use halo2_proofs::{
 use halo2curves::io;
 
 pub fn program_entry() -> i8 {
-    let mut params_buffer = [0u8; 1024];
-    let params_len = match load_witness(&mut params_buffer, 0, 0, Source::Input) {
-        Ok(l) => {
-            debug(format!("Loading params length: {:?}", l));
-            l
-        }
-        Err(e) => {
-            debug(format!("Loading params error {:?}", e));
-            return -1;
-        }
-    };
-    let mut vk_buffer = [0u8; 4096];
-    let vk_len = match load_witness(&mut vk_buffer, 0, 1, Source::Input) {
-        Ok(l) => {
-            debug(format!("Loading vk length: {:?}", l));
-            l
-        }
-        Err(e) => {
-            debug(format!("Loading vk error {:?}", e));
-            return -1;
-        }
-    };
-    let mut proof_buffer = [0u8; 8192];
-    let proof_len = match load_witness(&mut proof_buffer, 0, 2, Source::Input) {
-        Ok(l) => {
-            debug(format!("Loading proof length: {:?}", l));
-            l
-        }
-        Err(e) => {
-            debug(format!("Loading proof error {:?}", e));
-            return -1;
-        }
-    };
-
-    let mut code_buffer = [0u8; 2048];
-    let raw_code_len = match load_witness(&mut code_buffer, 0, 3, Source::Input) {
-        Ok(l) => {
-            debug(format!("Loading program length: {:?}", l));
-            l
-        }
-        Err(e) => {
-            debug(format!("Loading program error: {:?}", e));
-            return -1;
-        }
-    };
-    assert!(raw_code_len % 2 == 0); // san-check
-    let code_len = raw_code_len / 2;
-    let mut code = [Fr::zero(); 1024];
-    code[0] = Fr::from(code_len as u64);
-    (0..code_len).for_each(|idx| {
-        code[idx + 1] = Fr::from(u16::from_le_bytes([code_buffer[idx * 2], code_buffer[idx * 2 + 1]]) as u64)
-    });
-
-    let mut input_buffer = [0u8; 1024];
-    let input_len = match load_witness(&mut input_buffer, 0, 4, Source::Input) {
-        Ok(l) => {
-            debug(format!("Loading input length: {:?}", l));
-            l
-        }
-        Err(e) => {
-            debug(format!("Loading input error: {:?}", e));
-            return -1;
-        }
-    };
-    let mut input = [Fr::zero(); 1024];
-    input[0] = Fr::from(input_len as u64);
-    (0..input_len).for_each(|idx| {
-        input[idx+1] = Fr::from(input_buffer[idx] as u64);
-    });
+    let raw_bytes = include_bytes!("../../res/raw_input.bin");
+    let params_start = 4;
+    let params_end = params_start + u32::from_be_bytes(raw_bytes[0..params_start].try_into().unwrap()) as usize;
+    debug(format!("params len:{:?}", params_end - params_start));
+    let vk_start = params_end + 4;
+    let vk_end = vk_start + u32::from_be_bytes(raw_bytes[vk_start - 4..vk_start].try_into().unwrap()) as usize;
+    debug(format!("vk len:{:?}", vk_end - vk_start));
+    let proof_start = vk_end + 4;
+    let proof_end =
+        proof_start + u32::from_be_bytes(raw_bytes[proof_start - 4..proof_start].try_into().unwrap()) as usize;
+    debug(format!("proof len:{:?}", proof_end - proof_start));
+    let hash_raw = raw_bytes[proof_end..proof_end + 32].try_into().unwrap();
+    let hash_message = Fr::from_bytes(hash_raw).unwrap();
+    debug(format!("hash message: {:?}", hash_message));
 
     let verifier_params = {
-        let r: io::Result<ParamsVerifierKZG<Bn256>> = read_verifier_params(&mut &params_buffer[..params_len]);
+        let r: io::Result<ParamsVerifierKZG<Bn256>> = read_verifier_params(&mut &raw_bytes[params_start..params_end]);
         if r.is_err() {
             debug(format!("Error on ParamsVerifierKZG::<Bn256>::read: {:?}", r.err()));
             return -1;
@@ -110,7 +56,7 @@ pub fn program_entry() -> i8 {
 
     let vk = {
         let r = VerifyingKey::<G1Affine>::read::<&[u8], MyCircuit<Fr, DOMAIN>>(
-            &mut &vk_buffer[..vk_len],
+            &mut &raw_bytes[vk_start..vk_end],
             halo2_proofs::SerdeFormat::RawBytes,
         );
         if r.is_err() {
@@ -120,10 +66,7 @@ pub fn program_entry() -> i8 {
         r.unwrap()
     };
 
-    // Prepare instances
-    let instances = [&code[0..(code_len + 1)], &input[0..(input_len + 1)]];
-
-    let mut verifier_transcript = Blake2bRead::<_, G1Affine, Challenge255<_>>::init(&proof_buffer[..proof_len]);
+    let mut verifier_transcript = Blake2bRead::<_, G1Affine, Challenge255<_>>::init(&raw_bytes[proof_start..proof_end]);
     let strategy = SingleStrategy::new(&verifier_params);
     let res = verify_proof::<
         KZGCommitmentScheme<Bn256>,
@@ -131,7 +74,13 @@ pub fn program_entry() -> i8 {
         Challenge255<G1Affine>,
         Blake2bRead<&[u8], G1Affine, Challenge255<G1Affine>>,
         SingleStrategy<'_, Bn256>,
-    >(&verifier_params, &vk, strategy, &[&instances], &mut verifier_transcript);
+    >(
+        &verifier_params,
+        &vk,
+        strategy,
+        &[&[&[hash_message]]],
+        &mut verifier_transcript,
+    );
     if res.is_err() {
         debug(format!("Error on verify_proof: {:?}", res.err()));
         return -2;

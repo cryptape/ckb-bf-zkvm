@@ -1,0 +1,40 @@
+[package]
+name = "poseidon-circuit"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[examples]
+hash = { path = "examples/hash.rs"}
+
+[dependencies]
+halo2_proofs = {path = "../halo2_proofs"}
+poseidon = {path = "../poseidon"}
+lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
+bitvec = { version = "1", default-features = false }
+
+# [patch."https://github.com/privacy-scaling-explorations/halo2.git"]
+# halo2_proofs = { git = "https://github.com/scroll-tech/halo2.git", branch = "scroll-dev-1220" }
+
+[features]
+# Use an implementation using fewer rows (8) per permutation.
+short = []
+# printout the layout of circuits for demo and some unittests
+# print_layout = ["halo2_proofs/dev-graph"]
+
+[dev-dependencies]
+rand = "0.8"
+rand_chacha = "0.3.0"
+plotters = "0.3"
+bencher = "0.1"
+subtle = "2"
+
+[[bench]]
+name = "hash"
+harness = false
+
+# [profile.test]
+# opt-level = 3
+# debug-assertions = true
